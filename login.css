@@ -1,0 +1,84 @@
+.auth-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+}
+
+.auth-card {
+  width: 320px;
+  padding: 2em;
+  background-color: var(--card-clr);
+  border: 1px solid var(--line-clr);
+  border-radius: 1em;
+}
+
+.auth-card .logo {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 1.5em;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 0.5em;
+  margin-bottom: 1.5em;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 0.6em;
+  background: none;
+  border: 1px solid var(--line-clr);
+  border-radius: 0.5em;
+  color: var(--secondary-text-clr);
+  cursor: pointer;
+  font: inherit;
+}
+
+.auth-tab.active {
+  color: var(--text-clr);
+  border-color: var(--accent-clr);
+  background-color: var(--hover-clr);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  font-size: 0.85rem;
+  color: var(--secondary-text-clr);
+}
+
+.auth-form input {
+  padding: 0.6em;
+  border-radius: 0.5em;
+  border: 1px solid var(--line-clr);
+  background-color: var(--base-clr);
+  color: var(--text-clr);
+  font: inherit;
+}
+
+.auth-form button {
+  margin-top: 0.5em;
+  padding: 0.7em;
+  border: none;
+  border-radius: 0.5em;
+  background-color: var(--accent-clr);
+  color: var(--text-clr);
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-error {
+  margin-top: 1em;
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  text-align: center;
+}
