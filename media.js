@@ -161,8 +161,9 @@ function checkIconSvg() {
 }
 
 // Movies are watched as a single unit. `watchedMovieIds` is a Set fetched once per page
-// so every card's initial state is known without a fetch per card.
-function attachWatchedButton(actionsEl, item, watchedMovieIds) {
+// so every card's initial state is known without a fetch per card. `onChange`, if given,
+// is called after a successful toggle so pages showing "your watched items" can refresh.
+function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
   const button = document.createElement('button');
   button.className = 'card-action watched-btn';
   button.type = 'button';
@@ -190,9 +191,88 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds) {
       watchedMovieIds.add(item.tmdbId);
     }
     syncVisual();
+    if (onChange) onChange();
   });
 
   actionsEl.appendChild(button);
+}
+
+function favoriteKey(item) {
+  return `${item.mediaType}:${item.tmdbId}`;
+}
+
+// Fetches the current user's watched-movie ids and favorite ids once per page,
+// so every card's initial button state is known without a fetch per card.
+async function fetchStandardActionContext() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { watchedMovieIds: new Set(), favoriteIds: new Set() };
+  }
+
+  const [watchedMovies, favoriteIdsByType] = await Promise.all([
+    fetch('/api/watched/movies', { credentials: 'same-origin' }).then(r => r.json()),
+    fetch('/api/favorites/ids', { credentials: 'same-origin' }).then(r => r.json()),
+  ]);
+
+  const favoriteIds = new Set([
+    ...favoriteIdsByType.movie.map(id => `movie:${id}`),
+    ...favoriteIdsByType.tv.map(id => `tv:${id}`),
+  ]);
+
+  return { watchedMovieIds: new Set(watchedMovies), favoriteIds };
+}
+
+function heartIconSvg() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M480-120 240-296q-99-72-159.5-142.5T20-580q0-90 61-150t149-60q56 0 105 26.5t105 79.5q56-53 105-79.5T650-790q88 0 149 60t61 150q0 79-60.5 149.5T740-296L480-120Z"/></svg>';
+}
+
+function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
+  const button = document.createElement('button');
+  button.className = 'card-action favorite-btn';
+  button.type = 'button';
+  button.title = 'Favorite';
+  button.innerHTML = heartIconSvg();
+
+  const key = favoriteKey(item);
+  const syncVisual = () => button.classList.toggle('active', favoriteIds.has(key));
+  syncVisual();
+
+  button.addEventListener('click', async event => {
+    event.stopPropagation();
+    const user = await getCurrentUser();
+    if (!user) {
+      window.location.href = 'login.html';
+      return;
+    }
+
+    const isFavorite = favoriteIds.has(key);
+    const url = `/api/favorites/${item.mediaType}/${item.tmdbId}`;
+    if (isFavorite) {
+      await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
+      favoriteIds.delete(key);
+    } else {
+      await fetch(url, { method: 'POST', credentials: 'same-origin' });
+      favoriteIds.add(key);
+    }
+    syncVisual();
+    if (onChange) onChange();
+  });
+
+  actionsEl.appendChild(button);
+}
+
+// Attaches the full standard set of card actions (save, favorite, watched/episodes, rating)
+// used consistently across Home, Bookmarks, Lists, and Profile. `onChange`, if given, fires
+// after any toggle so a page displaying "your watched/favorited items" can refresh itself.
+function attachStandardActions(card, item, context, { includeSave = true, onChange } = {}) {
+  if (includeSave) attachSaveButton(card.actionsEl, item);
+  attachFavoriteButton(card.actionsEl, item, context.favoriteIds, onChange);
+  if (item.mediaType === 'movie') {
+    attachWatchedButton(card.actionsEl, item, context.watchedMovieIds, onChange);
+  } else {
+    attachEpisodeTracker(card.actionsEl, item, onChange);
+  }
+  attachRatingControl(card.actionsEl, item, onChange);
 }
 
 function tvIconSvg() {
@@ -204,7 +284,7 @@ function closeEpisodeModal() {
   if (existing) existing.remove();
 }
 
-async function openEpisodeModal(item) {
+async function openEpisodeModal(item, onChange) {
   closeEpisodeModal();
 
   const overlay = document.createElement('div');
@@ -279,6 +359,7 @@ async function openEpisodeModal(item) {
         const url = `/api/watched/shows/${item.tmdbId}/season/${seasonNumber}/episode/${episode.episode_number}`;
         await fetch(url, { method: checkbox.checked ? 'POST' : 'DELETE', credentials: 'same-origin' });
         refreshProgress();
+        if (onChange) onChange();
       });
 
       const span = document.createElement('span');
@@ -310,7 +391,7 @@ async function openEpisodeModal(item) {
   else episodeListEl.textContent = 'No episode data available.';
 }
 
-async function attachRatingControl(actionsEl, item) {
+async function attachRatingControl(actionsEl, item, onChange) {
   const select = document.createElement('select');
   select.className = 'card-action rating-select';
   select.title = 'Rate';
@@ -354,10 +435,11 @@ async function attachRatingControl(actionsEl, item) {
         body: JSON.stringify({ rating: Number(select.value) }),
       });
     }
+    if (onChange) onChange();
   });
 }
 
-function attachEpisodeTracker(actionsEl, item) {
+function attachEpisodeTracker(actionsEl, item, onChange) {
   const button = document.createElement('button');
   button.className = 'card-action episodes-btn';
   button.type = 'button';
@@ -371,7 +453,7 @@ function attachEpisodeTracker(actionsEl, item) {
       window.location.href = 'login.html';
       return;
     }
-    openEpisodeModal(item);
+    openEpisodeModal(item, onChange);
   });
 
   actionsEl.appendChild(button);

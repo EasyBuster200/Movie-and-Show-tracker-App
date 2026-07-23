@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../db');
-const { fetchTmdb } = require('../tmdbClient');
+const { fetchTmdb, fetchMediaSummary } = require('../tmdbClient');
 
 const router = express.Router();
 
@@ -9,6 +9,9 @@ const upsertWatchedMovie = db.prepare(
 );
 const deleteWatchedMovie = db.prepare('DELETE FROM watched_movies WHERE user_id = ? AND tmdb_id = ?');
 const getWatchedMovies = db.prepare('SELECT tmdb_id FROM watched_movies WHERE user_id = ?');
+const getDistinctWatchedShows = db.prepare(
+  'SELECT show_id, COUNT(*) AS watched_count FROM watched_episodes WHERE user_id = ? GROUP BY show_id'
+);
 
 const upsertWatchedEpisode = db.prepare(
   `INSERT OR REPLACE INTO watched_episodes (user_id, show_id, season_number, episode_number, watched_at)
@@ -37,6 +40,25 @@ router.delete('/movies/:tmdbId', (req, res) => {
 router.get('/movies', (req, res) => {
   const rows = getWatchedMovies.all(req.session.userId);
   res.json(rows.map(r => r.tmdb_id));
+});
+
+router.get('/movies/details', async (req, res) => {
+  const rows = getWatchedMovies.all(req.session.userId);
+  const enriched = await Promise.all(rows.map(row => fetchMediaSummary(row.tmdb_id, 'movie')));
+  res.json(enriched.filter(Boolean));
+});
+
+router.get('/shows', async (req, res) => {
+  const rows = getDistinctWatchedShows.all(req.session.userId);
+  const enriched = await Promise.all(rows.map(async row => {
+    const [summary, show] = await Promise.all([
+      fetchMediaSummary(row.show_id, 'tv'),
+      fetchTmdb(`/tv/${row.show_id}`),
+    ]);
+    if (!summary) return null;
+    return { ...summary, watched: row.watched_count, total: show ? show.number_of_episodes : null };
+  }));
+  res.json(enriched.filter(Boolean));
 });
 
 router.post('/shows/:tmdbId/season/:seasonNumber/episode/:episodeNumber', (req, res) => {

@@ -8,6 +8,8 @@ const tmdbRoutes = require('./routes/tmdb');
 const listsRoutes = require('./routes/lists');
 const watchedRoutes = require('./routes/watched');
 const ratingsRoutes = require('./routes/ratings');
+const favoritesRoutes = require('./routes/favorites');
+const statsRoutes = require('./routes/stats');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -31,6 +33,8 @@ app.use('/api/tmdb', tmdbRoutes);
 app.use('/api/lists', requireAuth, listsRoutes);
 app.use('/api/watched', requireAuth, watchedRoutes);
 app.use('/api/ratings', requireAuth, ratingsRoutes);
+app.use('/api/favorites', requireAuth, favoritesRoutes);
+app.use('/api/stats', requireAuth, statsRoutes);
 
 app.use(express.static(path.join(__dirname, '..')));
 

@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS watched_episodes (
   PRIMARY KEY (user_id, show_id, season_number, episode_number)
 );
 
+CREATE TABLE IF NOT EXISTS favorites (
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tmdb_id      INTEGER NOT NULL,
+  media_type   TEXT NOT NULL CHECK (media_type IN ('movie','tv')),
+  favorited_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, tmdb_id, media_type)
+);
+
 CREATE TABLE IF NOT EXISTS ratings (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   tmdb_id    INTEGER NOT NULL,

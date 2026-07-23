@@ -40,15 +40,12 @@ async function fetchTrending() {
     }
   };
 
-  const user = await getCurrentUser();
-  const watchedMovieIds = new Set(
-    user ? await fetch('/api/watched/movies', { credentials: 'same-origin' }).then(r => r.json()) : []
-  );
+  const context = await fetchStandardActionContext();
 
   try {
     const response = await fetch(MOVIE_API_URL, options);
     const data = await response.json();
-    displayMedia(data.results, "trending-movies", watchedMovieIds);
+    displayMedia(data.results, "trending-movies", context);
   } catch (error) {
     console.error("Error fetching movies:", error);
     document.getElementById('trending-movies').innerHTML = `<p>Failed to load trending movies.</p>`;
@@ -57,14 +54,14 @@ async function fetchTrending() {
   try {
     const response = await fetch(TV_API_URL, options);
     const data = await response.json();
-    displayMedia(data.results, "trending-shows", watchedMovieIds);
+    displayMedia(data.results, "trending-shows", context);
   } catch (error) {
     console.error("Error fetching shows:", error);
     document.getElementById('trending-shows').innerHTML = `<p>Failed to load trending shows.</p>`;
   }
 }
 
-function displayMedia(mediaList, containerId, watchedMovieIds) {
+function displayMedia(mediaList, containerId, context) {
   const container = document.getElementById(containerId);
 
   if(!container) return;
@@ -76,13 +73,7 @@ function displayMedia(mediaList, containerId, watchedMovieIds) {
 
     const item = normalizeTmdbTrendingItem(raw);
     const card = buildCard(item);
-    attachSaveButton(card.actionsEl, item);
-    if (item.mediaType === 'movie') {
-      attachWatchedButton(card.actionsEl, item, watchedMovieIds);
-    } else {
-      attachEpisodeTracker(card.actionsEl, item);
-    }
-    attachRatingControl(card.actionsEl, item);
+    attachStandardActions(card, item, context);
     container.appendChild(card);
   });
 }

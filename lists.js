@@ -75,9 +75,9 @@ async function selectList(list) {
   const lists = await fetchLists();
   renderChips(lists);
 
-  const [items, watchedMovieIds] = await Promise.all([
+  const [items, context] = await Promise.all([
     fetch(`/api/lists/${list.id}/items`, { credentials: 'same-origin' }).then(r => r.json()),
-    fetch('/api/watched/movies', { credentials: 'same-origin' }).then(r => r.json()).then(ids => new Set(ids)),
+    fetchStandardActionContext(),
   ]);
 
   itemsContainer.innerHTML = '';
@@ -88,12 +88,7 @@ async function selectList(list) {
   items.forEach(item => {
     const card = buildCard(item);
     attachRemoveButton(card.actionsEl, item, list.id, () => card.remove());
-    if (item.mediaType === 'movie') {
-      attachWatchedButton(card.actionsEl, item, watchedMovieIds);
-    } else {
-      attachEpisodeTracker(card.actionsEl, item);
-    }
-    attachRatingControl(card.actionsEl, item);
+    attachStandardActions(card, item, context, { includeSave: false });
     itemsContainer.appendChild(card);
   });
 }

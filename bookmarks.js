@@ -5,9 +5,9 @@ async function loadBookmarks() {
   const bookmarksList = lists.find(l => l.is_default);
   if (!bookmarksList) return;
 
-  const [items, watchedMovieIds] = await Promise.all([
+  const [items, context] = await Promise.all([
     fetch(`/api/lists/${bookmarksList.id}/items`, { credentials: 'same-origin' }).then(r => r.json()),
-    fetch('/api/watched/movies', { credentials: 'same-origin' }).then(r => r.json()).then(ids => new Set(ids)),
+    fetchStandardActionContext(),
   ]);
 
   container.innerHTML = '';
@@ -19,12 +19,7 @@ async function loadBookmarks() {
   items.forEach(item => {
     const card = buildCard(item);
     attachRemoveButton(card.actionsEl, item, bookmarksList.id, () => card.remove());
-    if (item.mediaType === 'movie') {
-      attachWatchedButton(card.actionsEl, item, watchedMovieIds);
-    } else {
-      attachEpisodeTracker(card.actionsEl, item);
-    }
-    attachRatingControl(card.actionsEl, item);
+    attachStandardActions(card, item, context, { includeSave: false });
     container.appendChild(card);
   });
 }
