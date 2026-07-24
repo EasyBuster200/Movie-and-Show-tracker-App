@@ -1,7 +1,27 @@
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
+const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
+const PROFILE_BASE_URL = 'https://image.tmdb.org/t/p/w185';
 
 function posterUrl(posterPath) {
   return posterPath ? IMAGE_BASE_URL + posterPath : 'https://via.placeholder.com/500x750?text=No+Image';
+}
+
+function backdropUrl(backdropPath) {
+  return backdropPath ? BACKDROP_BASE_URL + backdropPath : null;
+}
+
+function profileUrl(profilePath) {
+  return profilePath ? PROFILE_BASE_URL + profilePath : 'https://via.placeholder.com/185x278?text=No+Photo';
+}
+
+const STILL_BASE_URL = 'https://image.tmdb.org/t/p/w300';
+
+function stillUrl(stillPath) {
+  return stillPath ? STILL_BASE_URL + stillPath : 'https://via.placeholder.com/300x169?text=No+Image';
+}
+
+function detailUrl(item) {
+  return `detail.html?type=${item.mediaType}&id=${item.tmdbId}`;
 }
 
 function formatRating(voteAverage) {
@@ -51,6 +71,11 @@ function buildCard(item) {
 
   card.appendChild(info);
   card.actionsEl = actions;
+
+  card.addEventListener('click', () => {
+    window.location.href = detailUrl(item);
+  });
+
   return card;
 }
 
@@ -95,6 +120,7 @@ async function attachSaveButton(actionsEl, item) {
 
     const popover = document.createElement('div');
     popover.className = 'save-popover';
+    popover.addEventListener('click', event => event.stopPropagation());
 
     lists.forEach(list => {
       const row = document.createElement('label');
@@ -261,200 +287,15 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
   actionsEl.appendChild(button);
 }
 
-// Attaches the full standard set of card actions (save, favorite, watched/episodes, rating)
-// used consistently across Home, Bookmarks, Lists, and Profile. `onChange`, if given, fires
-// after any toggle so a page displaying "your watched/favorited items" can refresh itself.
+// Attaches the standard set of card actions (save, favorite, watched) used consistently
+// across Home, Bookmarks, Lists, and Profile. Shows don't get a quick watched toggle here —
+// per-episode tracking lives on the detail page (click the card to open it). Rating lives
+// only on the detail page as a star widget, not here. `onChange`, if given, fires after any
+// toggle so a page showing "your watched/favorited items" can refresh itself.
 function attachStandardActions(card, item, context, { includeSave = true, onChange } = {}) {
   if (includeSave) attachSaveButton(card.actionsEl, item);
   attachFavoriteButton(card.actionsEl, item, context.favoriteIds, onChange);
   if (item.mediaType === 'movie') {
     attachWatchedButton(card.actionsEl, item, context.watchedMovieIds, onChange);
-  } else {
-    attachEpisodeTracker(card.actionsEl, item, onChange);
   }
-  attachRatingControl(card.actionsEl, item, onChange);
-}
-
-function tvIconSvg() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M320-120v-80H160q-33 0-56.5-23.5T80-280v-480q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v480q0 33-23.5 56.5T800-200H640v80H320ZM160-280h640v-480H160v480Z"/></svg>';
-}
-
-function closeEpisodeModal() {
-  const existing = document.querySelector('.episode-modal-overlay');
-  if (existing) existing.remove();
-}
-
-async function openEpisodeModal(item, onChange) {
-  closeEpisodeModal();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'episode-modal-overlay';
-  overlay.addEventListener('click', event => {
-    if (event.target === overlay) closeEpisodeModal();
-  });
-
-  const modal = document.createElement('div');
-  modal.className = 'episode-modal';
-
-  const header = document.createElement('div');
-  header.className = 'episode-modal-header';
-  const heading = document.createElement('h3');
-  heading.textContent = item.title;
-  const closeBtn = document.createElement('button');
-  closeBtn.type = 'button';
-  closeBtn.className = 'card-action close-modal-btn';
-  closeBtn.textContent = '✕';
-  header.appendChild(heading);
-  header.appendChild(closeBtn);
-
-  const progressEl = document.createElement('p');
-  progressEl.className = 'episode-progress';
-  progressEl.textContent = 'Loading progress…';
-
-  const seasonTabsEl = document.createElement('div');
-  seasonTabsEl.className = 'season-tabs';
-
-  const episodeListEl = document.createElement('div');
-  episodeListEl.className = 'episode-list';
-  episodeListEl.textContent = 'Loading episodes…';
-
-  modal.appendChild(header);
-  modal.appendChild(progressEl);
-  modal.appendChild(seasonTabsEl);
-  modal.appendChild(episodeListEl);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-
-  closeBtn.addEventListener('click', closeEpisodeModal);
-
-  async function refreshProgress() {
-    const progress = await fetch(`/api/watched/shows/${item.tmdbId}/progress`, { credentials: 'same-origin' }).then(r => r.json());
-    progressEl.textContent = progress.total != null
-      ? `${progress.watched}/${progress.total} episodes watched`
-      : `${progress.watched} episodes watched`;
-  }
-
-  async function loadSeason(seasonNumber) {
-    seasonTabsEl.querySelectorAll('.season-tab').forEach(tab => {
-      tab.classList.toggle('active', Number(tab.dataset.season) === seasonNumber);
-    });
-
-    episodeListEl.textContent = 'Loading episodes…';
-    const [season, watchedEpisodes] = await Promise.all([
-      fetch(`/api/tmdb/tv/${item.tmdbId}/season/${seasonNumber}`, { credentials: 'same-origin' }).then(r => r.json()),
-      fetch(`/api/watched/shows/${item.tmdbId}/episodes`, { credentials: 'same-origin' }).then(r => r.json()),
-    ]);
-
-    const watchedSet = new Set(watchedEpisodes.filter(e => e.seasonNumber === seasonNumber).map(e => e.episodeNumber));
-
-    episodeListEl.innerHTML = '';
-    (season.episodes || []).forEach(episode => {
-      const row = document.createElement('label');
-      row.className = 'episode-row';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = watchedSet.has(episode.episode_number);
-      checkbox.addEventListener('change', async () => {
-        const url = `/api/watched/shows/${item.tmdbId}/season/${seasonNumber}/episode/${episode.episode_number}`;
-        await fetch(url, { method: checkbox.checked ? 'POST' : 'DELETE', credentials: 'same-origin' });
-        refreshProgress();
-        if (onChange) onChange();
-      });
-
-      const span = document.createElement('span');
-      span.textContent = `${episode.episode_number}. ${episode.name}`;
-
-      row.appendChild(checkbox);
-      row.appendChild(span);
-      episodeListEl.appendChild(row);
-    });
-  }
-
-  refreshProgress();
-
-  const show = await fetch(`/api/tmdb/tv/${item.tmdbId}`, { credentials: 'same-origin' }).then(r => r.json());
-  const seasons = (show.seasons || []).filter(s => s.season_number > 0);
-
-  seasonTabsEl.innerHTML = '';
-  seasons.forEach(season => {
-    const tab = document.createElement('button');
-    tab.type = 'button';
-    tab.className = 'season-tab';
-    tab.dataset.season = season.season_number;
-    tab.textContent = `S${season.season_number}`;
-    tab.addEventListener('click', () => loadSeason(season.season_number));
-    seasonTabsEl.appendChild(tab);
-  });
-
-  if (seasons.length > 0) loadSeason(seasons[0].season_number);
-  else episodeListEl.textContent = 'No episode data available.';
-}
-
-async function attachRatingControl(actionsEl, item, onChange) {
-  const select = document.createElement('select');
-  select.className = 'card-action rating-select';
-  select.title = 'Rate';
-
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Rate…';
-  select.appendChild(placeholder);
-
-  for (let i = 1; i <= 10; i++) {
-    const option = document.createElement('option');
-    option.value = String(i);
-    option.textContent = `${i}/10`;
-    select.appendChild(option);
-  }
-
-  actionsEl.appendChild(select);
-
-  const user = await getCurrentUser();
-  if (user) {
-    const current = await fetch(`/api/ratings/${item.mediaType}/${item.tmdbId}`, { credentials: 'same-origin' }).then(r => r.json());
-    if (current.rating) select.value = String(current.rating);
-  }
-
-  select.addEventListener('click', event => event.stopPropagation());
-  select.addEventListener('change', async () => {
-    const loggedInUser = await getCurrentUser();
-    if (!loggedInUser) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    const url = `/api/ratings/${item.mediaType}/${item.tmdbId}`;
-    if (select.value === '') {
-      await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
-    } else {
-      await fetch(url, {
-        method: 'PUT',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating: Number(select.value) }),
-      });
-    }
-    if (onChange) onChange();
-  });
-}
-
-function attachEpisodeTracker(actionsEl, item, onChange) {
-  const button = document.createElement('button');
-  button.className = 'card-action episodes-btn';
-  button.type = 'button';
-  button.title = 'Track episodes watched';
-  button.innerHTML = tvIconSvg();
-
-  button.addEventListener('click', async event => {
-    event.stopPropagation();
-    const user = await getCurrentUser();
-    if (!user) {
-      window.location.href = 'login.html';
-      return;
-    }
-    openEpisodeModal(item, onChange);
-  });
-
-  actionsEl.appendChild(button);
 }
