@@ -78,7 +78,7 @@ async function renderSection(section) {
       const progress = document.createElement('p');
       progress.className = 'card-meta';
       progress.textContent = `${item.watched}/${item.total} episodes watched`;
-      card.actionsEl.insertAdjacentElement('beforebegin', progress);
+      card.infoEl.appendChild(progress);
     }
 
     attachStandardActions(card, item, actionContext, { onChange: refreshAll });

@@ -87,7 +87,7 @@ async function selectList(list) {
   }
   items.forEach(item => {
     const card = buildCard(item);
-    attachRemoveButton(card.actionsEl, item, list.id, () => card.remove());
+    attachRemoveButton(card, item, list.id, () => card.remove());
     attachStandardActions(card, item, context, { includeSave: false });
     itemsContainer.appendChild(card);
   });

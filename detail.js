@@ -113,7 +113,7 @@ function renderCast(data) {
 
 async function renderActions(item, context) {
   const actionsEl = document.getElementById('detail-actions');
-  attachStandardActions({ actionsEl }, item, context);
+  attachStandardActions({ overlayActionsEl: actionsEl }, item, context);
   attachStarRating(actionsEl, item);
 }
 

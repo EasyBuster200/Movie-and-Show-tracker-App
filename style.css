@@ -50,6 +50,10 @@ body {
   text-wrap: nowrap;
 }
 
+#sidebar.no-transition {
+  transition: none !important;
+}
+
 #sidebar.close {
   padding: 5px;
   width: 60px;
@@ -329,12 +333,15 @@ main {
   border-radius: 10px;
   overflow: hidden;
   position: relative;
-  transition: transform 0.2s ease;
 }
 
 .card:hover {
-  scale: 1.05;
   cursor: pointer;
+}
+
+.card-poster {
+  position: relative;
+  overflow: hidden;
 }
 
 .card img {
@@ -342,6 +349,17 @@ main {
   height: 300px;
   object-fit: cover;
   display: block;
+  transition: transform 0.2s ease;
+}
+
+.card:hover img {
+  transform: scale(1.08);
+}
+
+.card-overlay-actions {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .card-info {
@@ -390,6 +408,39 @@ main {
   color: #fff;
   background-color: var(--accent-clr);
   border-color: var(--accent-clr);
+}
+
+.card-overlay-actions .card-action {
+  position: absolute;
+  pointer-events: auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: rgba(17, 18, 26, 0.75);
+  border: none;
+  justify-content: center;
+}
+
+.card-overlay-actions .card-action-tr {
+  top: 8px;
+  right: 8px;
+}
+
+.card-overlay-actions .card-action-bl {
+  bottom: 8px;
+  left: 8px;
+}
+
+.card-overlay-actions .card-action-br {
+  bottom: 8px;
+  right: 8px;
+}
+
+.card-overlay-actions .card-action:hover:not(:disabled),
+.card-overlay-actions .card-action.active {
+  color: #fff;
+  background-color: var(--accent-clr);
 }
 
 .episode-cards {
@@ -735,9 +786,8 @@ main {
 
 .save-popover {
   position: absolute;
-  bottom: 100%;
-  left: 0;
-  margin-bottom: 0.5em;
+  bottom: 48px;
+  right: 8px;
   background-color: var(--hover-clr);
   border: 1px solid var(--line-clr);
   border-radius: 0.5em;
@@ -747,6 +797,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.4em;
+  pointer-events: auto;
 }
 
 .save-popover-row {

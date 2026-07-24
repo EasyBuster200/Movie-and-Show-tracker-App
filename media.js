@@ -47,10 +47,19 @@ function buildCard(item) {
   const card = document.createElement('div');
   card.className = 'card';
 
+  const posterWrap = document.createElement('div');
+  posterWrap.className = 'card-poster';
+
   const img = document.createElement('img');
   img.src = posterUrl(item.posterPath);
   img.alt = item.title;
-  card.appendChild(img);
+  posterWrap.appendChild(img);
+
+  const overlayActions = document.createElement('div');
+  overlayActions.className = 'card-overlay-actions';
+  posterWrap.appendChild(overlayActions);
+
+  card.appendChild(posterWrap);
 
   const info = document.createElement('div');
   info.className = 'card-info';
@@ -65,12 +74,9 @@ function buildCard(item) {
   title.textContent = item.title;
   info.appendChild(title);
 
-  const actions = document.createElement('div');
-  actions.className = 'card-actions';
-  info.appendChild(actions);
-
   card.appendChild(info);
-  card.actionsEl = actions;
+  card.overlayActionsEl = overlayActions;
+  card.infoEl = info;
 
   card.addEventListener('click', () => {
     window.location.href = detailUrl(item);
@@ -90,7 +96,7 @@ function bookmarkIconSvg() {
 
 async function attachSaveButton(actionsEl, item) {
   const button = document.createElement('button');
-  button.className = 'card-action save-btn';
+  button.className = 'card-action save-btn card-action-br';
   button.type = 'button';
   button.title = 'Save to a list';
   button.innerHTML = bookmarkIconSvg();
@@ -163,7 +169,17 @@ async function attachSaveButton(actionsEl, item) {
   });
 }
 
-function attachRemoveButton(actionsEl, item, listId, onRemoved) {
+// Unlike the overlay actions (save/favorite/watched), removing an item only makes sense on
+// list-management pages, so its footer row is created lazily rather than always reserving
+// space in card-info.
+function attachRemoveButton(card, item, listId, onRemoved) {
+  let footer = card.infoEl.querySelector('.card-actions');
+  if (!footer) {
+    footer = document.createElement('div');
+    footer.className = 'card-actions';
+    card.infoEl.appendChild(footer);
+  }
+
   const button = document.createElement('button');
   button.className = 'card-action remove-btn';
   button.type = 'button';
@@ -179,11 +195,15 @@ function attachRemoveButton(actionsEl, item, listId, onRemoved) {
     onRemoved();
   });
 
-  actionsEl.appendChild(button);
+  footer.appendChild(button);
 }
 
 function checkIconSvg() {
   return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>';
+}
+
+function eyeIconSvg() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z"/></svg>';
 }
 
 // Movies are watched as a single unit. `watchedMovieIds` is a Set fetched once per page
@@ -191,10 +211,10 @@ function checkIconSvg() {
 // is called after a successful toggle so pages showing "your watched items" can refresh.
 function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
   const button = document.createElement('button');
-  button.className = 'card-action watched-btn';
+  button.className = 'card-action watched-btn card-action-tr';
   button.type = 'button';
   button.title = 'Mark as watched';
-  button.innerHTML = checkIconSvg();
+  button.innerHTML = eyeIconSvg();
 
   const syncVisual = () => button.classList.toggle('active', watchedMovieIds.has(item.tmdbId));
   syncVisual();
@@ -254,7 +274,7 @@ function heartIconSvg() {
 
 function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
   const button = document.createElement('button');
-  button.className = 'card-action favorite-btn';
+  button.className = 'card-action favorite-btn card-action-bl';
   button.type = 'button';
   button.title = 'Favorite';
   button.innerHTML = heartIconSvg();
@@ -293,9 +313,9 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
 // only on the detail page as a star widget, not here. `onChange`, if given, fires after any
 // toggle so a page showing "your watched/favorited items" can refresh itself.
 function attachStandardActions(card, item, context, { includeSave = true, onChange } = {}) {
-  if (includeSave) attachSaveButton(card.actionsEl, item);
-  attachFavoriteButton(card.actionsEl, item, context.favoriteIds, onChange);
+  if (includeSave) attachSaveButton(card.overlayActionsEl, item);
+  attachFavoriteButton(card.overlayActionsEl, item, context.favoriteIds, onChange);
   if (item.mediaType === 'movie') {
-    attachWatchedButton(card.actionsEl, item, context.watchedMovieIds, onChange);
+    attachWatchedButton(card.overlayActionsEl, item, context.watchedMovieIds, onChange);
   }
 }

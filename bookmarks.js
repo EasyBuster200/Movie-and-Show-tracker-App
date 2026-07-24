@@ -18,7 +18,7 @@ async function loadBookmarks() {
 
   items.forEach(item => {
     const card = buildCard(item);
-    attachRemoveButton(card.actionsEl, item, bookmarksList.id, () => card.remove());
+    attachRemoveButton(card, item, bookmarksList.id, () => card.remove());
     attachStandardActions(card, item, context, { includeSave: false });
     container.appendChild(card);
   });
