@@ -3,6 +3,51 @@ function getParams() {
   return { mediaType: params.get('type'), tmdbId: params.get('id') };
 }
 
+function showConfirmDialog(message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+
+    const text = document.createElement('p');
+    text.textContent = message;
+    modal.appendChild(text);
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm-actions';
+
+    function close(result) {
+      overlay.remove();
+      resolve(result);
+    }
+
+    const noBtn = document.createElement('button');
+    noBtn.type = 'button';
+    noBtn.className = 'confirm-btn';
+    noBtn.textContent = 'No';
+    noBtn.addEventListener('click', () => close(false));
+
+    const yesBtn = document.createElement('button');
+    yesBtn.type = 'button';
+    yesBtn.className = 'confirm-btn confirm-btn-yes';
+    yesBtn.textContent = 'Yes, mark them';
+    yesBtn.addEventListener('click', () => close(true));
+
+    actions.appendChild(noBtn);
+    actions.appendChild(yesBtn);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) close(false);
+    });
+
+    document.body.appendChild(overlay);
+  });
+}
+
 function toStandardItem(data, mediaType) {
   const releaseDate = data.release_date || data.first_air_date || null;
   return {
@@ -255,7 +300,7 @@ function formatAirDate(airDate) {
   return new Date(airDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function buildEpisodeCard(episode, season, item, watchedSet, onToggle) {
+function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarkedWatched }) {
   const key = `${season.season_number}:${episode.episode_number}`;
   const isUnreleased = !episode.air_date || new Date(episode.air_date) > new Date();
   const hasRealTitle = episode.name && !/^Episode\s+\d+$/i.test(episode.name.trim());
@@ -296,7 +341,8 @@ function buildEpisodeCard(episode, season, item, watchedSet, onToggle) {
   const watchedBtn = document.createElement('button');
   watchedBtn.type = 'button';
   watchedBtn.className = 'card-action episode-watched-btn';
-  watchedBtn.innerHTML = checkIconSvg();
+  watchedBtn.dataset.episodeKey = key;
+  watchedBtn.innerHTML = eyeIconSvg();
   watchedBtn.classList.toggle('active', watchedSet.has(key));
 
   if (isUnreleased) {
@@ -317,6 +363,7 @@ function buildEpisodeCard(episode, season, item, watchedSet, onToggle) {
       else watchedSet.delete(key);
       watchedBtn.classList.toggle('active', nowWatched);
       onToggle();
+      if (nowWatched) onMarkedWatched();
     });
   }
 
@@ -354,11 +401,61 @@ async function renderSeasons(data, item) {
   const watchedSet = new Set(watchedEpisodes.map(e => `${e.seasonNumber}:${e.episodeNumber}`));
 
   const seasons = (data.seasons || []).filter(s => s.season_number > 0);
+  const episodeCountBySeason = new Map(seasons.map(s => [s.season_number, s.episode_count]));
+  const seasonHeaderProgressEls = new Map();
 
   function updateOverallProgress() {
     progressEl.textContent = `${watchedSet.size}/${data.number_of_episodes} episodes watched`;
   }
   updateOverallProgress();
+
+  function updateSeasonHeaderProgress(seasonNumber) {
+    const el = seasonHeaderProgressEls.get(seasonNumber);
+    if (!el) return;
+    const count = [...watchedSet].filter(key => key.startsWith(`${seasonNumber}:`)).length;
+    el.textContent = `${count}/${episodeCountBySeason.get(seasonNumber)} watched`;
+  }
+
+  // Marks a single episode watched: hits the API, updates the shared watchedSet, and syncs
+  // the visual state of that episode's button if it's already rendered (its season may not
+  // be expanded, in which case there's nothing in the DOM yet to update).
+  async function markEpisodeWatched(seasonNumber, episodeNumber) {
+    await fetch(`/api/watched/shows/${item.tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    const key = `${seasonNumber}:${episodeNumber}`;
+    watchedSet.add(key);
+    const btn = accordion.querySelector(`[data-episode-key="${key}"]`);
+    if (btn) btn.classList.add('active');
+    updateSeasonHeaderProgress(seasonNumber);
+  }
+
+  // Every (season, episode) that airs before the given one, across all seasons, that isn't
+  // already watched — the candidates for the "catch up" prompt.
+  function findUnwatchedBefore(seasonNumber, episodeNumber) {
+    const before = [];
+    episodeCountBySeason.forEach((episodeCount, sNum) => {
+      const lastEpisode = sNum < seasonNumber ? episodeCount : sNum === seasonNumber ? episodeNumber - 1 : 0;
+      for (let e = 1; e <= lastEpisode; e++) {
+        if (!watchedSet.has(`${sNum}:${e}`)) before.push({ seasonNumber: sNum, episodeNumber: e });
+      }
+    });
+    return before;
+  }
+
+  async function offerCatchUp(seasonNumber, episodeNumber) {
+    const before = findUnwatchedBefore(seasonNumber, episodeNumber);
+    if (before.length === 0) return;
+
+    const confirmed = await showConfirmDialog(
+      `You have ${before.length} unwatched episode${before.length === 1 ? '' : 's'} before this one. Mark them as watched too?`
+    );
+    if (!confirmed) return;
+
+    await Promise.all(before.map(e => markEpisodeWatched(e.seasonNumber, e.episodeNumber)));
+    updateOverallProgress();
+  }
 
   seasons.forEach(season => {
     const block = document.createElement('div');
@@ -368,16 +465,14 @@ async function renderSeasons(data, item) {
     header.type = 'button';
     header.className = 'season-header';
 
-    const seasonWatchedCount = () =>
-      [...watchedSet].filter(key => key.startsWith(`${season.season_number}:`)).length;
-
     const headerLabel = document.createElement('span');
     headerLabel.textContent = `${season.name} — ${season.episode_count} episodes`;
     const headerProgress = document.createElement('span');
     headerProgress.className = 'season-header-progress';
-    headerProgress.textContent = `${seasonWatchedCount()}/${season.episode_count} watched`;
+    seasonHeaderProgressEls.set(season.season_number, headerProgress);
     header.appendChild(headerLabel);
     header.appendChild(headerProgress);
+    updateSeasonHeaderProgress(season.season_number);
 
     const episodesEl = document.createElement('div');
     episodesEl.className = 'episode-cards';
@@ -394,9 +489,12 @@ async function renderSeasons(data, item) {
 
       episodesEl.innerHTML = '';
       (seasonData.episodes || []).forEach(episode => {
-        episodesEl.appendChild(buildEpisodeCard(episode, season, item, watchedSet, () => {
-          headerProgress.textContent = `${seasonWatchedCount()}/${season.episode_count} watched`;
-          updateOverallProgress();
+        episodesEl.appendChild(buildEpisodeCard(episode, season, item, watchedSet, {
+          onToggle: () => {
+            updateSeasonHeaderProgress(season.season_number);
+            updateOverallProgress();
+          },
+          onMarkedWatched: () => offerCatchUp(season.season_number, episode.episode_number),
         }));
       });
     });

@@ -410,6 +410,10 @@ main {
   border-color: var(--accent-clr);
 }
 
+.card-action.active:hover:not(:disabled) {
+  color: #fff;
+}
+
 .card-overlay-actions .card-action {
   position: absolute;
   pointer-events: auto;
@@ -784,6 +788,55 @@ main {
   padding: 0 1.2em 1em;
 }
 
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.confirm-modal {
+  width: min(360px, 90vw);
+  background-color: var(--card-clr);
+  border: 1px solid var(--line-clr);
+  border-radius: 1em;
+  padding: 1.5em;
+}
+
+.confirm-modal p {
+  color: var(--text-clr);
+  margin-bottom: 1.2em;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6em;
+}
+
+.confirm-btn {
+  padding: 0.5em 1em;
+  border-radius: 0.5em;
+  border: 1px solid var(--line-clr);
+  background: none;
+  color: var(--text-clr);
+  cursor: pointer;
+  font: inherit;
+}
+
+.confirm-btn:hover {
+  border-color: var(--accent-clr);
+}
+
+.confirm-btn-yes {
+  background-color: var(--accent-clr);
+  border-color: var(--accent-clr);
+  color: #fff;
+}
+
 .save-popover {
   position: absolute;
   bottom: 48px;
@@ -899,3 +952,89 @@ main {
 
 /*TODO: When going to smaller screens the trending shows cover the sidebar at the bottom and the sidebar items aren't centered*/
 /*TODO: when hoevering the edges of the cards become square*/
+
+.search-bar {
+  position: relative;
+  margin: 1em 1em 1.5em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.search-bar input {
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 0.7em 1.2em;
+  border-radius: 2em;
+  border: 1px solid var(--line-clr);
+  background-color: var(--card-clr);
+  color: var(--text-clr);
+  font: inherit;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: var(--accent-clr);
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0.4em;
+  width: 100%;
+  max-width: 480px;
+  background-color: var(--hover-clr);
+  border: 1px solid var(--line-clr);
+  border-radius: 0.8em;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.search-result-row {
+  display: flex;
+  gap: 0.8em;
+  align-items: center;
+  padding: 0.6em 0.8em;
+  cursor: pointer;
+}
+
+.search-result-row:hover {
+  background-color: var(--card-clr);
+}
+
+.search-result-row img {
+  width: 40px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 0.3em;
+  flex-shrink: 0;
+  background-color: var(--card-clr);
+}
+
+.search-result-info {
+  min-width: 0;
+}
+
+.search-result-title {
+  font-size: 0.9rem;
+  color: var(--text-clr);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-meta {
+  font-size: 0.8rem;
+  color: var(--secondary-text-clr);
+  margin-top: 0.2em;
+}
+
+.search-empty {
+  padding: 0.8em;
+  color: var(--secondary-text-clr);
+  font-size: 0.9rem;
+}

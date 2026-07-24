@@ -24,6 +24,7 @@ async function proxyToTmdb(tmdbPath, req, res) {
 
 router.get('/trending/movie/day', (req, res) => proxyToTmdb('/trending/movie/day', req, res));
 router.get('/trending/tv/day', (req, res) => proxyToTmdb('/trending/tv/day', req, res));
+router.get('/search/multi', (req, res) => proxyToTmdb('/search/multi', req, res));
 router.get('/movie/:id', (req, res) => proxyToTmdb(`/movie/${req.params.id}`, req, res));
 router.get('/tv/:id', (req, res) => proxyToTmdb(`/tv/${req.params.id}`, req, res));
 router.get('/tv/:id/season/:seasonNumber', (req, res) =>
