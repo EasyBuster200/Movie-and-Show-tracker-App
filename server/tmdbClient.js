@@ -21,6 +21,7 @@ async function fetchMediaSummary(tmdbId, mediaType) {
     mediaType,
     title,
     year: releaseDate ? releaseDate.split('-')[0] : null,
+    releaseDate,
     posterPath: data.poster_path,
     voteAverage: data.vote_average,
   };

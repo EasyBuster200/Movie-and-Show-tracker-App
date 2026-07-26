@@ -560,6 +560,11 @@ main {
   color: #fff;
 }
 
+.card-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .card-overlay-actions .card-action {
   position: absolute;
   pointer-events: auto;
@@ -602,6 +607,7 @@ main {
   color: #fff;
   background-color: var(--danger-clr);
 }
+
 
 .new-episode-dot {
   position: absolute;

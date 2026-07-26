@@ -70,7 +70,7 @@ router.get('/:listId/items', requireOwnedList, async (req, res) => {
   const enriched = await Promise.all(
     items.map(async item => {
       const summary = await fetchMediaSummary(item.tmdb_id, item.media_type);
-      return summary || { tmdbId: item.tmdb_id, mediaType: item.media_type, title: 'Unknown', year: null, posterPath: null, voteAverage: null };
+      return summary || { tmdbId: item.tmdb_id, mediaType: item.media_type, title: 'Unknown', year: null, releaseDate: null, posterPath: null, voteAverage: null };
     })
   );
   res.json(enriched);

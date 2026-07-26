@@ -55,6 +55,7 @@ function toStandardItem(data, mediaType) {
     mediaType,
     title: data.title || data.name,
     year: releaseDate ? releaseDate.split('-')[0] : null,
+    releaseDate,
     posterPath: data.poster_path,
     voteAverage: data.vote_average,
   };

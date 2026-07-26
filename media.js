@@ -38,6 +38,7 @@ function normalizeTmdbTrendingItem(raw) {
     mediaType: raw.media_type === 'movie' ? 'movie' : 'tv',
     title: raw.title || raw.name || 'Untitled',
     year: releaseDate ? releaseDate.split('-')[0] : null,
+    releaseDate,
     posterPath: raw.poster_path,
     voteAverage: raw.vote_average,
   };
@@ -207,8 +208,16 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
   const button = document.createElement('button');
   button.className = 'card-action watched-btn card-action-tr';
   button.type = 'button';
-  button.title = 'Mark as watched';
   button.innerHTML = eyeIconSvg();
+
+  const isUnreleased = !item.releaseDate || new Date(item.releaseDate) > new Date();
+  if (isUnreleased) {
+    button.disabled = true;
+    button.title = 'Not yet released';
+    actionsEl.appendChild(button);
+    return;
+  }
+  button.title = 'Mark as watched';
 
   const syncVisual = () => button.classList.toggle('active', watchedMovieIds.has(item.tmdbId));
   syncVisual();

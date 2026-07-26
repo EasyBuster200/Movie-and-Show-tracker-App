@@ -32,6 +32,7 @@ function normalizeRecommendation(raw, mediaType) {
     mediaType,
     title: raw.title || raw.name || 'Untitled',
     year: releaseDate ? releaseDate.split('-')[0] : null,
+    releaseDate,
     posterPath: raw.poster_path,
     voteAverage: raw.vote_average,
   };
