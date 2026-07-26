@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const { source, type } = getListParams();
   const sourceLabel = source === 'favorites' ? 'Favorite' : 'Watched';
   const typeLabel = type === 'tv' ? 'Shows' : 'Movies';
-  const title = `${user.displayName} ${sourceLabel} ${typeLabel}`;
+  const title = `${user.displayName}'s ${sourceLabel} ${typeLabel}`;
   document.getElementById('media-list-heading').textContent = title;
   document.title = title;
 
