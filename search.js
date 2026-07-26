@@ -90,6 +90,13 @@ function initSearchBar() {
     debounceTimer = setTimeout(() => runSearch(query), SEARCH_DEBOUNCE_MS);
   });
 
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    const query = input.value.trim();
+    if (!query) return;
+    window.location.href = `search.html?q=${encodeURIComponent(query)}`;
+  });
+
   document.addEventListener('click', event => {
     if (!event.target.closest('.search-bar')) closeResults();
   });
