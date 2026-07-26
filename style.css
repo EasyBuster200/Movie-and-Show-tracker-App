@@ -1039,6 +1039,19 @@ main {
   pointer-events: auto;
 }
 
+/* On cards, the save button sits absolutely-positioned in a corner, so anchoring the
+   popover to its overlay container's own corner (above) happens to line up with the button.
+   In a normal flex row like the detail page's action bar, the button isn't in a corner of
+   its container — it's the leftmost item — so the popover needs to open below it instead,
+   left-aligned, rather than inheriting the card's up/right positioning. */
+.card-actions .save-popover {
+  bottom: auto;
+  right: auto;
+  top: 100%;
+  left: 0;
+  margin-top: 0.5em;
+}
+
 .save-popover-row {
   display: flex;
   align-items: center;
