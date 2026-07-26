@@ -169,22 +169,20 @@ async function attachSaveButton(actionsEl, item) {
   });
 }
 
-// Unlike the overlay actions (save/favorite/watched), removing an item only makes sense on
-// list-management pages, so its footer row is created lazily rather than always reserving
-// space in card-info.
-function attachRemoveButton(card, item, listId, onRemoved) {
-  let footer = card.infoEl.querySelector('.card-actions');
-  if (!footer) {
-    footer = document.createElement('div');
-    footer.className = 'card-actions';
-    card.infoEl.appendChild(footer);
-  }
+function closeIconSvg() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M256-200 200-256l224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>';
+}
 
+// Removing only makes sense on list-management pages, so it isn't part of
+// attachStandardActions — but it lives in the same overlay corner slot (top-left, unused
+// by save/favorite/watched) so it reads as part of the same action language, not a bolted-on
+// footer button.
+function attachRemoveButton(card, item, listId, onRemoved) {
   const button = document.createElement('button');
-  button.className = 'card-action remove-btn';
+  button.className = 'card-action remove-btn card-action-tl';
   button.type = 'button';
   button.title = 'Remove from this list';
-  button.textContent = '✕';
+  button.innerHTML = closeIconSvg();
 
   button.addEventListener('click', async event => {
     event.stopPropagation();
@@ -195,7 +193,7 @@ function attachRemoveButton(card, item, listId, onRemoved) {
     onRemoved();
   });
 
-  footer.appendChild(button);
+  card.overlayActionsEl.appendChild(button);
 }
 
 function eyeIconSvg() {
