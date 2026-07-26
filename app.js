@@ -2,15 +2,13 @@
 const MOVIE_API_URL = '/api/tmdb/trending/movie/day?language=en-US';
 const TV_API_URL = '/api/tmdb/trending/tv/day?language=en-US';
 
-async function fetchTrending() {
+async function fetchTrending(context) {
   const options = {
     method: "GET",
     headers: {
       accept: "application/json"
     }
   };
-
-  const context = await fetchStandardActionContext();
 
   try {
     const response = await fetch(MOVIE_API_URL, options);
@@ -55,4 +53,48 @@ function displayMedia(mediaList, containerId, context, moreUrl, moreLabel) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', fetchTrending);
+function formatAirDate(airDate) {
+  if (!airDate) return null;
+  return new Date(airDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+async function loadAiringSoon(context) {
+  const container = document.getElementById('airing-soon');
+  const emptyEl = document.getElementById('airing-soon-empty');
+
+  try {
+    const shows = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' }).then(r => r.json());
+    if (!Array.isArray(shows) || shows.length === 0) {
+      container.hidden = true;
+      emptyEl.hidden = false;
+      return;
+    }
+
+    container.hidden = false;
+    emptyEl.hidden = true;
+    container.innerHTML = '';
+
+    shows.forEach(item => {
+      const card = buildCard(item);
+
+      const meta = document.createElement('p');
+      meta.className = 'card-meta';
+      const { seasonNumber, episodeNumber, airDate } = item.nextEpisode;
+      meta.textContent = `S${seasonNumber}E${episodeNumber} • Airs ${formatAirDate(airDate)}`;
+      card.infoEl.appendChild(meta);
+
+      attachStandardActions(card, item, context);
+      container.appendChild(card);
+    });
+  } catch (error) {
+    console.error('Failed to load airing soon:', error);
+    container.hidden = true;
+    emptyEl.hidden = false;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const context = await fetchStandardActionContext();
+  fetchTrending(context);
+  loadAiringSoon(context);
+});

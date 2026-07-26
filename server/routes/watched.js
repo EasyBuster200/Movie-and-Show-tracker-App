@@ -121,4 +121,39 @@ router.get('/shows/:tmdbId/progress', async (req, res) => {
   res.json({ watched: count, total });
 });
 
+const UPCOMING_LIMIT = 20;
+
+// Every show the user has watched at least one episode of, with TMDB's own
+// next_episode_to_air (present whenever a returning show has a confirmed upcoming episode),
+// soonest first. Unlike Keep Watching this isn't about being behind — a fully caught-up show
+// still belongs here if it has a next episode airing.
+router.get('/shows/upcoming', async (req, res) => {
+  const userId = req.session.userId;
+  const rows = getDistinctWatchedShows.all(userId);
+  const enriched = await Promise.all(rows.map(async row => {
+    const [summary, show] = await Promise.all([
+      fetchMediaSummary(row.show_id, 'tv'),
+      fetchTmdb(`/tv/${row.show_id}`),
+    ]);
+    if (!summary || !show || !show.next_episode_to_air) return null;
+    const next = show.next_episode_to_air;
+    return {
+      ...summary,
+      nextEpisode: {
+        seasonNumber: next.season_number,
+        episodeNumber: next.episode_number,
+        name: next.name,
+        airDate: next.air_date,
+      },
+    };
+  }));
+
+  const upcoming = enriched
+    .filter(Boolean)
+    .sort((a, b) => (a.nextEpisode.airDate < b.nextEpisode.airDate ? -1 : 1))
+    .slice(0, UPCOMING_LIMIT);
+
+  res.json(upcoming);
+});
+
 module.exports = router;
