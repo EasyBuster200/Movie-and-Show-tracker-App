@@ -70,6 +70,151 @@ function showNewListForm() {
   });
 }
 
+const ADD_ITEM_SEARCH_DEBOUNCE_MS = 300;
+
+// A dashed "+" tile appended to the end of every list's items — clicking it turns the tile
+// itself into an inline search box (styled after search.js's dropdown) so a movie/show can
+// be added without leaving the page. `onItemAdded` re-renders the list afterward.
+function buildAddItemCard(listId, onItemAdded) {
+  const card = document.createElement('div');
+  card.className = 'card add-item-card';
+  card.title = 'Add a movie or show to this list';
+
+  const plus = document.createElement('span');
+  plus.className = 'add-item-plus';
+  plus.textContent = '+';
+  card.appendChild(plus);
+
+  let active = false;
+  let debounceTimer = null;
+  let activeController = null;
+
+  function closeSearch() {
+    if (!active) return;
+    active = false;
+    if (activeController) activeController.abort();
+    card.classList.remove('active');
+    card.innerHTML = '';
+    card.appendChild(plus);
+    document.removeEventListener('click', handleOutsideClick);
+  }
+
+  function handleOutsideClick(event) {
+    if (!card.contains(event.target)) closeSearch();
+  }
+
+  function renderResults(rawResults, resultsEl) {
+    const items = rawResults
+      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+      .slice(0, 8)
+      .map(normalizeTmdbTrendingItem);
+
+    resultsEl.innerHTML = '';
+    if (items.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'search-empty';
+      empty.textContent = 'No results found.';
+      resultsEl.appendChild(empty);
+      return;
+    }
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'search-result-row';
+
+      const img = document.createElement('img');
+      img.src = posterUrl(item.posterPath);
+      img.alt = item.title;
+      row.appendChild(img);
+
+      const info = document.createElement('div');
+      info.className = 'search-result-info';
+
+      const title = document.createElement('p');
+      title.className = 'search-result-title';
+      title.textContent = item.title;
+      info.appendChild(title);
+
+      const meta = document.createElement('p');
+      meta.className = 'search-result-meta';
+      meta.textContent = `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
+      info.appendChild(meta);
+
+      row.appendChild(info);
+
+      row.addEventListener('click', async () => {
+        await fetch(`/api/lists/${listId}/items`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tmdbId: item.tmdbId, mediaType: item.mediaType }),
+        });
+        closeSearch();
+        onItemAdded();
+      });
+
+      resultsEl.appendChild(row);
+    });
+  }
+
+  async function runSearch(query, resultsEl) {
+    if (activeController) activeController.abort();
+    activeController = new AbortController();
+    try {
+      const response = await fetch(`/api/tmdb/search/multi?query=${encodeURIComponent(query)}`, {
+        credentials: 'same-origin',
+        signal: activeController.signal,
+      });
+      const data = await response.json();
+      renderResults(data.results || [], resultsEl);
+    } catch (error) {
+      if (error.name !== 'AbortError') console.error('Search failed:', error);
+    }
+  }
+
+  function openSearch() {
+    if (active) return;
+    active = true;
+    card.classList.add('active');
+    card.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'add-item-search';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search movies and shows...';
+
+    const resultsEl = document.createElement('div');
+    resultsEl.className = 'add-item-results';
+
+    wrap.appendChild(input);
+    wrap.appendChild(resultsEl);
+    card.appendChild(wrap);
+    input.focus();
+
+    input.addEventListener('click', event => event.stopPropagation());
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = input.value.trim();
+      if (!query) {
+        resultsEl.innerHTML = '';
+        return;
+      }
+      debounceTimer = setTimeout(() => runSearch(query, resultsEl), ADD_ITEM_SEARCH_DEBOUNCE_MS);
+    });
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeSearch();
+    });
+
+    document.addEventListener('click', handleOutsideClick);
+  }
+
+  card.addEventListener('click', () => openSearch());
+
+  return card;
+}
+
 function showNoListsState() {
   currentListId = null;
   titleEl.textContent = 'Lists';
@@ -91,16 +236,13 @@ async function selectList(list) {
   ]);
 
   itemsContainer.innerHTML = '';
-  if (items.length === 0) {
-    itemsContainer.innerHTML = '<p>This list is empty — save something from the Home page.</p>';
-    return;
-  }
   items.forEach(item => {
     const card = buildCard(item);
     attachRemoveButton(card, item, list.id, () => card.remove());
     attachStandardActions(card, item, context, { includeSave: false });
     itemsContainer.appendChild(card);
   });
+  itemsContainer.appendChild(buildAddItemCard(list.id, () => selectList(list)));
 }
 
 deleteListBtn.addEventListener('click', async () => {

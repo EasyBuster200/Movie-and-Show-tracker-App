@@ -305,6 +305,71 @@ main {
   font: inherit;
 }
 
+.add-item-card {
+  height: 377px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px dashed var(--line-clr);
+  color: var(--secondary-text-clr);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.add-item-card:hover {
+  color: var(--accent-clr);
+  border-color: var(--accent-clr);
+}
+
+.add-item-card.active {
+  cursor: default;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.6em;
+  gap: 0.5em;
+  color: var(--secondary-text-clr);
+  border-color: var(--line-clr);
+}
+
+.add-item-plus {
+  font-size: 2.5rem;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.add-item-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  flex: 1;
+  min-height: 0;
+}
+
+.add-item-search input {
+  padding: 0.5em 0.8em;
+  border-radius: 1.5em;
+  border: 1px solid var(--line-clr);
+  background-color: var(--base-clr);
+  color: var(--text-clr);
+  font: inherit;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.add-item-search input:focus {
+  outline: none;
+  border-color: var(--accent-clr);
+}
+
+.add-item-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .media-container {
   display: flex;
   gap: 20px;
