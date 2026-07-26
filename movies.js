@@ -140,12 +140,14 @@ async function loadBrowsePage() {
   try {
     const data = await fetch(`/api/tmdb/discover/movie?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());
     grid.innerHTML = '';
-    (data.results || []).forEach(raw => {
-      const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
-      const card = buildCard(item);
-      attachStandardActions(card, item, context);
-      grid.appendChild(card);
-    });
+    (data.results || [])
+      .filter(raw => !context.watchedMovieIds.has(raw.id))
+      .forEach(raw => {
+        const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+        const card = buildCard(item);
+        attachStandardActions(card, item, context);
+        grid.appendChild(card);
+      });
     renderPagination(data.page || currentPage, data.total_pages || 1);
   } catch (error) {
     console.error('Failed to load browse grid:', error);

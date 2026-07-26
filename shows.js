@@ -3,6 +3,14 @@ const MEDIA_TYPE = 'tv';
 const selectedGenreIds = new Set();
 let currentPage = 1;
 let context = null;
+let watchedShowIds = new Set();
+
+async function fetchWatchedShowIds() {
+  const response = await fetch('/api/watched/shows', { credentials: 'same-origin' });
+  if (!response.ok) return new Set();
+  const shows = await response.json();
+  return new Set(shows.map(s => s.tmdbId));
+}
 
 async function loadRow(url, containerId) {
   const container = document.getElementById(containerId);
@@ -181,12 +189,14 @@ async function loadBrowsePage() {
   try {
     const data = await fetch(`/api/tmdb/discover/tv?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());
     grid.innerHTML = '';
-    (data.results || []).forEach(raw => {
-      const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
-      const card = buildCard(item);
-      attachStandardActions(card, item, context);
-      grid.appendChild(card);
-    });
+    (data.results || [])
+      .filter(raw => !watchedShowIds.has(raw.id))
+      .forEach(raw => {
+        const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+        const card = buildCard(item);
+        attachStandardActions(card, item, context);
+        grid.appendChild(card);
+      });
     renderPagination(data.page || currentPage, data.total_pages || 1);
   } catch (error) {
     console.error('Failed to load browse grid:', error);
@@ -196,6 +206,7 @@ async function loadBrowsePage() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   context = await fetchStandardActionContext();
+  watchedShowIds = await fetchWatchedShowIds();
 
   loadRow('/api/tmdb/tv/popular?language=en-US', 'popular-shows');
   loadKeepWatching();
