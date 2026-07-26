@@ -38,7 +38,7 @@ app.use('/api/favorites', requireAuth, favoritesRoutes);
 app.use('/api/stats', requireAuth, statsRoutes);
 app.use('/api/recommendations', requireAuth, recommendationsRoutes);
 
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

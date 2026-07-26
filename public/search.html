@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lists</title>
-  <link rel="stylesheet" href="style.css">
-  <script type="text/javascript" src="auth.js" defer></script>
-  <script type="text/javascript" src="sidebar.js" defer></script>
-  <script type="text/javascript" src="media.js" defer></script>
-  <script type="text/javascript" src="lists.js" defer></script>
+  <title>Search</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/auth.js" defer></script>
+  <script type="text/javascript" src="scripts/sidebar.js" defer></script>
+  <script type="text/javascript" src="scripts/media.js" defer></script>
+  <script type="text/javascript" src="scripts/search.js" defer></script>
+  <script type="text/javascript" src="scripts/search-results.js" defer></script>
 </head>
 <body>
   <nav id="sidebar">
@@ -31,7 +32,7 @@
           <span>Bookmarks</span>
         </a>
       </li>
-      <li class="active">
+      <li>
         <a href="lists.html">
           <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>
           <span>Lists</span>
@@ -58,13 +59,16 @@
     </ul>
   </nav>
   <main>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search movies and shows..." autocomplete="off">
+      <div class="search-results" id="search-results" hidden></div>
+    </div>
+
     <div class="container">
-      <div class="lists-header">
-        <h2 id="list-title">Lists</h2>
-        <button id="delete-list-btn" class="card-action" hidden>Delete this list</button>
-      </div>
-      <div class="lists-toolbar" id="lists-toolbar"></div>
-      <div class="media-container" id="list-items-container"></div>
+      <h2 id="search-results-heading">Search</h2>
+      <p id="search-results-empty" hidden>No results found.</p>
+      <div class="media-grid" id="search-results-grid"></div>
+      <div class="pagination" id="search-results-pagination"></div>
     </div>
   </main>
 </body>

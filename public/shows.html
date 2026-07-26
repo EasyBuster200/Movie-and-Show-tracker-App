@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media List</title>
-  <link rel="stylesheet" href="style.css">
-  <script type="text/javascript" src="auth.js" defer></script>
-  <script type="text/javascript" src="sidebar.js" defer></script>
-  <script type="text/javascript" src="media.js" defer></script>
-  <script type="text/javascript" src="media-list.js" defer></script>
+  <title>TV Shows</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/auth.js" defer></script>
+  <script type="text/javascript" src="scripts/sidebar.js" defer></script>
+  <script type="text/javascript" src="scripts/media.js" defer></script>
+  <script type="text/javascript" src="scripts/search.js" defer></script>
+  <script type="text/javascript" src="scripts/shows.js" defer></script>
 </head>
 <body>
   <nav id="sidebar">
@@ -43,7 +44,7 @@
           <span>Movies</span>
         </a>
       </li>
-      <li>
+      <li class="active">
         <a href="shows.html">
           <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M320-120v-80H160q-33 0-56.5-23.5T80-280v-480q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v480q0 33-23.5 56.5T800-200H640v80H320ZM160-280h640v-480H160v480Zm0 0v-480 480Z"/></svg>
           <span>TV Shows</span>
@@ -58,15 +59,33 @@
     </ul>
   </nav>
   <main>
-    <button type="button" id="back-btn" class="back-btn">
-      <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
-      <span>Back</span>
-    </button>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search movies and shows..." autocomplete="off">
+      <div class="search-results" id="search-results" hidden></div>
+    </div>
 
     <div class="container">
-      <h2 id="media-list-heading">Media List</h2>
-      <p id="media-list-empty" hidden></p>
-      <div class="media-grid" id="media-list-grid"></div>
+      <h2>Popular</h2>
+      <div class="media-container" id="popular-shows"></div>
+    </div>
+
+    <div class="container">
+      <h2>Keep Watching</h2>
+      <div class="media-container" id="keep-watching"></div>
+      <p id="keep-watching-empty" hidden>No shows in progress — start watching something!</p>
+    </div>
+
+    <div class="container">
+      <h2>Recommended</h2>
+      <div class="media-container" id="recommended-shows"></div>
+      <p id="recommended-empty" hidden>Watch or save a few shows to get personalized recommendations.</p>
+    </div>
+
+    <div class="container">
+      <h2>Browse All TV Shows</h2>
+      <div class="lists-toolbar" id="genre-toolbar"></div>
+      <div class="media-grid" id="browse-grid"></div>
+      <div class="pagination" id="browse-pagination"></div>
     </div>
   </main>
 </body>

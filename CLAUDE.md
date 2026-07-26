@@ -21,7 +21,9 @@ Required `.env` (gitignored, not present in a fresh checkout): `TMDB_ACCESS_TOKE
 
 ## Architecture
 
-**Single Express process, no framework on the frontend.** `server/index.js` mounts the API under `/api/*` and serves the repo root as static files (`express.static`) — one origin, one port, no CORS, no separate dev server for the frontend. Pages are plain multi-page HTML (`main.html`, `bookmarks.html`, `lists.html`, `profile.html`, `detail.html`, `login.html`); there's no router or SPA framework, so navigation is real page loads.
+**Folder layout:** `server/` (Express app, routes, DB) and `public/` (everything `express.static` serves — HTML pages at its root so page URLs stay e.g. `/main.html`, plus `public/styles/` and `public/scripts/` for CSS/JS). `docs/icons/` holds source Material Symbols SVGs used as copy-paste reference for the inline `<svg>` icons scattered through the HTML — not loaded by the app itself, safe to ignore when tracing runtime behavior.
+
+**Single Express process, no framework on the frontend.** `server/index.js` mounts the API under `/api/*` and serves `public/` as static files (`express.static`) — one origin, one port, no CORS, no separate dev server for the frontend. Pages are plain multi-page HTML (`main.html`, `bookmarks.html`, `lists.html`, `movies.html`, `shows.html`, `profile.html`, `detail.html`, `search.html`, `media-list.html`, `login.html`); there's no router or SPA framework, so navigation is real page loads.
 
 **Database:** SQLite via `better-sqlite3` (`server/db.js`), schema in `server/schema.sql` applied idempotently (`CREATE TABLE IF NOT EXISTS`) on every boot — no migration system. Sessions are also stored in SQLite via a hand-rolled `express-session` store (`server/sessionStore.js`), not JWT — deliberately, since frontend and API are same-origin.
 
@@ -29,7 +31,7 @@ Required `.env` (gitignored, not present in a fresh checkout): `TMDB_ACCESS_TOKE
 
 **Auth gating is client-side-first, not route-blocked.** Static pages like `bookmarks.html` are not protected at the HTTP layer; each protected page's own script calls `requireLogin()` (from `auth.js`) on load and redirects to `login.html` if unauthenticated. The real enforcement is server-side: `server/index.js` mounts `requireAuth` middleware per API route group (`/api/lists`, `/api/watched`, `/api/ratings`, `/api/favorites`, `/api/stats`), so a page-level redirect flash is cosmetic, not a security gap.
 
-**Frontend has no bundler, so shared code is shared `<script>` includes, and load order matters.** Every page manually lists the scripts it needs; the working convention is `auth.js` → `sidebar.js` → `media.js` → (`search.js` if present) → page-specific script (`app.js`, `bookmarks.js`, `lists.js`, `profile.js`, `detail.js`). `media.js` is the de facto shared component library:
+**Frontend has no bundler, so shared code is shared `<script>` includes, and load order matters.** Every page manually lists the scripts it needs (from `public/scripts/`); the working convention is `auth.js` → `sidebar.js` → `media.js` → (`search.js` if present) → page-specific script (`app.js`, `bookmarks.js`, `lists.js`, `profile.js`, `detail.js`, `movies.js`, `shows.js`, `search-results.js`, `media-list.js`). `media.js` is the de facto shared component library:
 - `buildCard(item)` builds the poster card DOM used everywhere content is listed, wiring in click-through to `detail.html?type=&id=`.
 - `attachStandardActions(card, item, context, opts)` is the standard entry point every page calls to wire up the save/favorite/watched buttons on a card — don't reimplement these per page.
 - `fetchStandardActionContext()` batch-fetches the current user's watched-movie ids and favorite ids once per page load, so individual card buttons don't each fire their own request.
@@ -48,4 +50,4 @@ Adding a new page that lists movies/shows should reuse `buildCard`/`attachStanda
 
 ## Current scope
 
-`movies.html` and `shows.html` (browse-all pages) don't exist yet — the sidebar links to them but they're unbuilt placeholders. Content discovery currently happens via the Home page's trending carousels and the search bar (Home/Bookmarks/detail page only, via TMDB's `/search/multi`).
+`movies.html`/`shows.html` are built: Popular/Coming Soon (movies) or Keep Watching (shows) + Recommended rows, plus a paginated, multi-genre-filterable "browse everything" grid (`GET /api/tmdb/discover/movie|tv`) that excludes anything already watched. `search.html` is the full paginated results page reachable by pressing Enter in any page's search bar (`search.js`), separate from the 8-item typeahead dropdown. `media-list.html?source=watched|favorites&type=movie|tv` is the "see all" page linked from Profile's truncated Watched/Favorite rows.
