@@ -421,8 +421,13 @@ async function renderSeasons(data, item) {
   function updateSeasonHeaderProgress(seasonNumber) {
     const el = seasonHeaderProgressEls.get(seasonNumber);
     if (!el) return;
+    const total = episodeCountBySeason.get(seasonNumber);
+    if (!total) {
+      el.textContent = '';
+      return;
+    }
     const count = [...watchedSet].filter(key => key.startsWith(`${seasonNumber}:`)).length;
-    el.textContent = `${count}/${episodeCountBySeason.get(seasonNumber)} watched`;
+    el.textContent = `${count}/${total} watched`;
   }
 
   // Marks a single episode watched: hits the API, updates the shared watchedSet, and syncs
@@ -475,7 +480,9 @@ async function renderSeasons(data, item) {
     header.className = 'season-header';
 
     const headerLabel = document.createElement('span');
-    headerLabel.textContent = `${season.name} — ${season.episode_count} episodes`;
+    headerLabel.textContent = season.episode_count > 0
+      ? `${season.name} — ${season.episode_count} episodes`
+      : `${season.name} — Coming Soon`;
     if (newSeasonSet.has(season.season_number)) {
       const newLabel = document.createElement('span');
       newLabel.className = 'new-label';
