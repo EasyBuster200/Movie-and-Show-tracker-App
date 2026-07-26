@@ -53,10 +53,10 @@ async function loadStats() {
 const WATCHED_PREVIEW_LIMIT = 20;
 
 const MEDIA_SECTIONS = [
-  { url: '/api/watched/movies/details', containerId: 'watched-movies-container', empty: 'No watched movies yet.', moreUrl: 'watched.html?type=movie' },
-  { url: '/api/favorites/movies', containerId: 'favorite-movies-container', empty: 'No favorite movies yet.' },
-  { url: '/api/watched/shows', containerId: 'watched-shows-container', empty: 'No shows tracked yet.', showProgress: true, moreUrl: 'watched.html?type=tv' },
-  { url: '/api/favorites/tv', containerId: 'favorite-shows-container', empty: 'No favorite shows yet.' },
+  { url: '/api/watched/movies/details', containerId: 'watched-movies-container', empty: 'No watched movies yet.', moreUrl: 'media-list.html?source=watched&type=movie' },
+  { url: '/api/favorites/movies', containerId: 'favorite-movies-container', empty: 'No favorite movies yet.', moreUrl: 'media-list.html?source=favorites&type=movie' },
+  { url: '/api/watched/shows', containerId: 'watched-shows-container', empty: 'No shows tracked yet.', showProgress: true, moreUrl: 'media-list.html?source=watched&type=tv' },
+  { url: '/api/favorites/tv', containerId: 'favorite-shows-container', empty: 'No favorite shows yet.', moreUrl: 'media-list.html?source=favorites&type=tv' },
 ];
 
 // Shared across refreshes so per-card button states (watched/favorite) stay in sync

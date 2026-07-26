@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watched</title>
+  <title>Media List</title>
   <link rel="stylesheet" href="style.css">
   <script type="text/javascript" src="auth.js" defer></script>
   <script type="text/javascript" src="sidebar.js" defer></script>
   <script type="text/javascript" src="media.js" defer></script>
-  <script type="text/javascript" src="watched.js" defer></script>
+  <script type="text/javascript" src="media-list.js" defer></script>
 </head>
 <body>
   <nav id="sidebar">
@@ -58,10 +58,15 @@
     </ul>
   </nav>
   <main>
+    <button type="button" id="back-btn" class="back-btn">
+      <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
+      <span>Back</span>
+    </button>
+
     <div class="container">
-      <h2 id="watched-heading">Watched</h2>
-      <p id="watched-empty" hidden></p>
-      <div class="media-grid" id="watched-grid"></div>
+      <h2 id="media-list-heading">Media List</h2>
+      <p id="media-list-empty" hidden></p>
+      <div class="media-grid" id="media-list-grid"></div>
     </div>
   </main>
 </body>
