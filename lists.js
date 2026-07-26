@@ -5,8 +5,11 @@ const deleteListBtn = document.getElementById('delete-list-btn');
 
 let currentListId = null;
 
+// Bookmarks is a list under the hood (the default list, auto-created at signup) but has
+// its own dedicated page — it's excluded here so it doesn't also show up as a regular list.
 async function fetchLists() {
-  return fetch('/api/lists', { credentials: 'same-origin' }).then(r => r.json());
+  const lists = await fetch('/api/lists', { credentials: 'same-origin' }).then(r => r.json());
+  return lists.filter(list => !list.is_default);
 }
 
 function renderChips(lists) {
@@ -67,10 +70,17 @@ function showNewListForm() {
   });
 }
 
+function showNoListsState() {
+  currentListId = null;
+  titleEl.textContent = 'Lists';
+  deleteListBtn.hidden = true;
+  itemsContainer.innerHTML = '<p>Create your first list to get started.</p>';
+}
+
 async function selectList(list) {
   currentListId = list.id;
   titleEl.textContent = list.name;
-  deleteListBtn.hidden = !!list.is_default;
+  deleteListBtn.hidden = false;
 
   const lists = await fetchLists();
   renderChips(lists);
@@ -97,7 +107,12 @@ deleteListBtn.addEventListener('click', async () => {
   if (!currentListId) return;
   await fetch(`/api/lists/${currentListId}`, { method: 'DELETE', credentials: 'same-origin' });
   const lists = await fetchLists();
-  if (lists.length > 0) selectList(lists[0]);
+  if (lists.length > 0) {
+    selectList(lists[0]);
+  } else {
+    renderChips(lists);
+    showNoListsState();
+  }
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -107,4 +122,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   const lists = await fetchLists();
   renderChips(lists);
   if (lists.length > 0) selectList(lists[0]);
+  else showNoListsState();
 });
