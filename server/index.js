@@ -10,6 +10,7 @@ const watchedRoutes = require('./routes/watched');
 const ratingsRoutes = require('./routes/ratings');
 const favoritesRoutes = require('./routes/favorites');
 const statsRoutes = require('./routes/stats');
+const recommendationsRoutes = require('./routes/recommendations');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/watched', requireAuth, watchedRoutes);
 app.use('/api/ratings', requireAuth, ratingsRoutes);
 app.use('/api/favorites', requireAuth, favoritesRoutes);
 app.use('/api/stats', requireAuth, statsRoutes);
+app.use('/api/recommendations', requireAuth, recommendationsRoutes);
 
 app.use(express.static(path.join(__dirname, '..')));
 

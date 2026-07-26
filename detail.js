@@ -300,9 +300,10 @@ function formatAirDate(airDate) {
   return new Date(airDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarkedWatched }) {
+function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarkedWatched, lastWatchedAt }) {
   const key = `${season.season_number}:${episode.episode_number}`;
   const isUnreleased = !episode.air_date || new Date(episode.air_date) > new Date();
+  const isNew = !isUnreleased && !watchedSet.has(key) && lastWatchedAt && new Date(episode.air_date) > new Date(lastWatchedAt);
   const hasRealTitle = episode.name && !/^Episode\s+\d+$/i.test(episode.name.trim());
   const hasOverview = episode.overview && episode.overview.trim().length > 0;
 
@@ -369,6 +370,12 @@ function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarke
 
   titleRow.appendChild(number);
   titleRow.appendChild(name);
+  if (isNew) {
+    const newLabel = document.createElement('span');
+    newLabel.className = 'new-label';
+    newLabel.textContent = 'New';
+    titleRow.appendChild(newLabel);
+  }
   titleRow.appendChild(watchedBtn);
   info.appendChild(titleRow);
 
@@ -397,8 +404,10 @@ async function renderSeasons(data, item) {
   const accordion = document.getElementById('seasons-accordion');
   accordion.innerHTML = '';
 
-  const watchedEpisodes = await fetch(`/api/watched/shows/${item.tmdbId}/episodes`, { credentials: 'same-origin' }).then(r => r.json());
+  const { episodes: watchedEpisodes, lastWatchedAt, newSeasonNumbers } =
+    await fetch(`/api/watched/shows/${item.tmdbId}/episodes`, { credentials: 'same-origin' }).then(r => r.json());
   const watchedSet = new Set(watchedEpisodes.map(e => `${e.seasonNumber}:${e.episodeNumber}`));
+  const newSeasonSet = new Set(newSeasonNumbers);
 
   const seasons = (data.seasons || []).filter(s => s.season_number > 0);
   const episodeCountBySeason = new Map(seasons.map(s => [s.season_number, s.episode_count]));
@@ -467,6 +476,12 @@ async function renderSeasons(data, item) {
 
     const headerLabel = document.createElement('span');
     headerLabel.textContent = `${season.name} — ${season.episode_count} episodes`;
+    if (newSeasonSet.has(season.season_number)) {
+      const newLabel = document.createElement('span');
+      newLabel.className = 'new-label';
+      newLabel.textContent = 'New';
+      headerLabel.appendChild(newLabel);
+    }
     const headerProgress = document.createElement('span');
     headerProgress.className = 'season-header-progress';
     seasonHeaderProgressEls.set(season.season_number, headerProgress);
@@ -495,6 +510,7 @@ async function renderSeasons(data, item) {
             updateOverallProgress();
           },
           onMarkedWatched: () => offerCatchUp(season.season_number, episode.episode_number),
+          lastWatchedAt,
         }));
       });
     });

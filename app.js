@@ -15,7 +15,7 @@ async function fetchTrending() {
   try {
     const response = await fetch(MOVIE_API_URL, options);
     const data = await response.json();
-    displayMedia(data.results, "trending-movies", context);
+    displayMedia(data.results, "trending-movies", context, "movies.html", "movies");
   } catch (error) {
     console.error("Error fetching movies:", error);
     document.getElementById('trending-movies').innerHTML = `<p>Failed to load trending movies.</p>`;
@@ -24,14 +24,14 @@ async function fetchTrending() {
   try {
     const response = await fetch(TV_API_URL, options);
     const data = await response.json();
-    displayMedia(data.results, "trending-shows", context);
+    displayMedia(data.results, "trending-shows", context, "shows.html", "shows");
   } catch (error) {
     console.error("Error fetching shows:", error);
     document.getElementById('trending-shows').innerHTML = `<p>Failed to load trending shows.</p>`;
   }
 }
 
-function displayMedia(mediaList, containerId, context) {
+function displayMedia(mediaList, containerId, context, moreUrl, moreLabel) {
   const container = document.getElementById(containerId);
 
   if(!container) return;
@@ -46,6 +46,13 @@ function displayMedia(mediaList, containerId, context) {
     attachStandardActions(card, item, context);
     container.appendChild(card);
   });
+
+  if (moreUrl) {
+    const moreCard = document.createElement("div");
+    moreCard.className = "more-card";
+    moreCard.innerHTML = `<a href="${moreUrl}" class="more-btn" aria-label="View more ${moreLabel}"><span aria-hidden="true">+</span></a>`;
+    container.appendChild(moreCard);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', fetchTrending);

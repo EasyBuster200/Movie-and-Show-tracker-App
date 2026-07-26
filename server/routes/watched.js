@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../db');
 const { fetchTmdb, fetchMediaSummary } = require('../tmdbClient');
+const { computeNewEpisodeSeasons } = require('../newEpisodes');
 
 const router = express.Router();
 
@@ -26,6 +27,9 @@ const getWatchedEpisodes = db.prepare(
 const countWatchedEpisodes = db.prepare(
   'SELECT COUNT(*) AS count FROM watched_episodes WHERE user_id = ? AND show_id = ?'
 );
+const getLastWatchedAtForShow = db.prepare(
+  'SELECT MAX(watched_at) AS lastWatchedAt FROM watched_episodes WHERE user_id = ? AND show_id = ?'
+);
 
 router.post('/movies/:tmdbId', (req, res) => {
   upsertWatchedMovie.run(req.session.userId, req.params.tmdbId);
@@ -49,14 +53,31 @@ router.get('/movies/details', async (req, res) => {
 });
 
 router.get('/shows', async (req, res) => {
-  const rows = getDistinctWatchedShows.all(req.session.userId);
+  const userId = req.session.userId;
+  const includeNew = req.query.includeNewEpisodes === 'true';
+  const rows = getDistinctWatchedShows.all(userId);
   const enriched = await Promise.all(rows.map(async row => {
     const [summary, show] = await Promise.all([
       fetchMediaSummary(row.show_id, 'tv'),
       fetchTmdb(`/tv/${row.show_id}`),
     ]);
     if (!summary) return null;
-    return { ...summary, watched: row.watched_count, total: show ? show.number_of_episodes : null };
+    const total = show ? show.number_of_episodes : null;
+    const watched = row.watched_count;
+
+    let hasNewEpisodes = false;
+    if (includeNew && total != null && watched < total) {
+      const watchedRows = getWatchedEpisodes.all(userId, row.show_id);
+      const { lastWatchedAt } = getLastWatchedAtForShow.get(userId, row.show_id);
+      ({ hasNewEpisodes } = await computeNewEpisodeSeasons({
+        tmdbId: row.show_id,
+        watchedRows,
+        lastWatchedAt,
+        show,
+      }));
+    }
+
+    return { ...summary, watched, total, hasNewEpisodes };
   }));
   res.json(enriched.filter(Boolean));
 });
@@ -71,9 +92,26 @@ router.delete('/shows/:tmdbId/season/:seasonNumber/episode/:episodeNumber', (req
   res.status(204).end();
 });
 
-router.get('/shows/:tmdbId/episodes', (req, res) => {
-  const rows = getWatchedEpisodes.all(req.session.userId, req.params.tmdbId);
-  res.json(rows.map(r => ({ seasonNumber: r.season_number, episodeNumber: r.episode_number })));
+router.get('/shows/:tmdbId/episodes', async (req, res) => {
+  const userId = req.session.userId;
+  const tmdbId = req.params.tmdbId;
+
+  const watchedRows = getWatchedEpisodes.all(userId, tmdbId);
+  const { lastWatchedAt } = getLastWatchedAtForShow.get(userId, tmdbId);
+
+  let newSeasonNumbers = [];
+  if (lastWatchedAt) {
+    const show = await fetchTmdb(`/tv/${tmdbId}`);
+    if (show) {
+      ({ newSeasonNumbers } = await computeNewEpisodeSeasons({ tmdbId, watchedRows, lastWatchedAt, show }));
+    }
+  }
+
+  res.json({
+    episodes: watchedRows.map(r => ({ seasonNumber: r.season_number, episodeNumber: r.episode_number })),
+    lastWatchedAt,
+    newSeasonNumbers,
+  });
 });
 
 router.get('/shows/:tmdbId/progress', async (req, res) => {
