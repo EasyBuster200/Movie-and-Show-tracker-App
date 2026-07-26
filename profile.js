@@ -50,10 +50,12 @@ async function loadStats() {
   });
 }
 
+const WATCHED_PREVIEW_LIMIT = 20;
+
 const MEDIA_SECTIONS = [
-  { url: '/api/watched/movies/details', containerId: 'watched-movies-container', empty: 'No watched movies yet.' },
+  { url: '/api/watched/movies/details', containerId: 'watched-movies-container', empty: 'No watched movies yet.', moreUrl: 'watched.html?type=movie' },
   { url: '/api/favorites/movies', containerId: 'favorite-movies-container', empty: 'No favorite movies yet.' },
-  { url: '/api/watched/shows', containerId: 'watched-shows-container', empty: 'No shows tracked yet.', showProgress: true },
+  { url: '/api/watched/shows', containerId: 'watched-shows-container', empty: 'No shows tracked yet.', showProgress: true, moreUrl: 'watched.html?type=tv' },
   { url: '/api/favorites/tv', containerId: 'favorite-shows-container', empty: 'No favorite shows yet.' },
 ];
 
@@ -71,7 +73,9 @@ async function renderSection(section) {
     return;
   }
 
-  items.forEach(item => {
+  const preview = section.moreUrl ? items.slice(0, WATCHED_PREVIEW_LIMIT) : items;
+
+  preview.forEach(item => {
     const card = buildCard(item);
 
     if (section.showProgress && item.total != null) {
@@ -84,6 +88,13 @@ async function renderSection(section) {
     attachStandardActions(card, item, actionContext, { onChange: refreshAll });
     container.appendChild(card);
   });
+
+  if (section.moreUrl && items.length > WATCHED_PREVIEW_LIMIT) {
+    const moreCard = document.createElement('div');
+    moreCard.className = 'more-card';
+    moreCard.innerHTML = `<a href="${section.moreUrl}" class="more-btn" aria-label="View all"><span aria-hidden="true">+</span></a>`;
+    container.appendChild(moreCard);
+  }
 }
 
 // Any watched/favorite/episode/rating toggle on this page can change what belongs in

@@ -9,10 +9,11 @@ const upsertWatchedMovie = db.prepare(
   'INSERT OR REPLACE INTO watched_movies (user_id, tmdb_id, watched_at) VALUES (?, ?, datetime(\'now\'))'
 );
 const deleteWatchedMovie = db.prepare('DELETE FROM watched_movies WHERE user_id = ? AND tmdb_id = ?');
-const getWatchedMovies = db.prepare('SELECT tmdb_id FROM watched_movies WHERE user_id = ?');
-const getDistinctWatchedShows = db.prepare(
-  'SELECT show_id, COUNT(*) AS watched_count FROM watched_episodes WHERE user_id = ? GROUP BY show_id'
-);
+const getWatchedMovies = db.prepare('SELECT tmdb_id FROM watched_movies WHERE user_id = ? ORDER BY watched_at DESC');
+const getDistinctWatchedShows = db.prepare(`
+  SELECT show_id, COUNT(*) AS watched_count, MAX(watched_at) AS last_watched_at
+  FROM watched_episodes WHERE user_id = ? GROUP BY show_id ORDER BY last_watched_at DESC
+`);
 
 const upsertWatchedEpisode = db.prepare(
   `INSERT OR REPLACE INTO watched_episodes (user_id, show_id, season_number, episode_number, watched_at)
