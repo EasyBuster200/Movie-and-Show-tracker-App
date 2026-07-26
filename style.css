@@ -740,6 +740,22 @@ main {
   padding: 0.5em 0;
 }
 
+.detail-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.detail-top-bar .back-btn {
+  flex-shrink: 0;
+  margin: 1em 0 1.5em 1em;
+}
+
+.detail-top-bar .search-bar {
+  flex: 1;
+  margin: 1em 1em 1.5em 0;
+}
+
 .back-btn svg {
   flex-shrink: 0;
 }
