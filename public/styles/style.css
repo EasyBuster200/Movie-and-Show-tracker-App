@@ -1100,6 +1100,12 @@ main {
     position: fixed;
     top: unset;
     bottom: 0;
+    /* Without an explicit z-index, .card's own position:relative (also z-index:auto) would
+       win the paint order over this fixed bar simply because <main>'s cards come after
+       <nav id="sidebar"> in the DOM - covering the bar while scrolling past them. Kept below
+       .save-popover (10) / .search-results (20) / .confirm-overlay (200) so those can still
+       float above the bar when they open near the bottom of a page. */
+    z-index: 5;
 
     > ul {
       padding: 0;
