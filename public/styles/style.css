@@ -1169,6 +1169,22 @@ main {
     width: 100%;
     height: 160px;
   }
+
+  /* .media-grid's 200px fixed-width columns only fit one per row on a phone screen,
+     leaving it lopsided against the left edge. Two narrower columns use the width better. */
+  .media-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .media-grid .card {
+    width: 100%;
+  }
+
+  .media-grid .card img {
+    height: auto;
+    aspect-ratio: 2 / 3;
+  }
 }
 
 .search-bar {
