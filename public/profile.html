@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Profile</title>
   <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-share.js"></script>
+  <script type="text/javascript" src="scripts/localDb.js" defer></script>
+  <script type="text/javascript" src="scripts/localApi.js" defer></script>
+  <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/backup.js" defer></script>
   <script type="text/javascript" src="scripts/auth.js" defer></script>
   <script type="text/javascript" src="scripts/sidebar.js" defer></script>
   <script type="text/javascript" src="scripts/media.js" defer></script>
@@ -70,6 +77,13 @@
     <div class="profile-header">
       <h2 id="profile-name"></h2>
       <p id="profile-email"></p>
+    </div>
+
+    <div class="container">
+      <h2>Backup</h2>
+      <p>Download a file with all of this profile's lists, watched history, ratings, and favorites — load it into the app on a new phone instead of starting over.</p>
+      <button type="button" id="export-backup-btn" class="list-chip">Export Backup</button>
+      <p id="export-backup-status" class="card-meta" hidden></p>
     </div>
 
     <div class="container">

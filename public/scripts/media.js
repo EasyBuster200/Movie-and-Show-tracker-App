@@ -214,7 +214,7 @@ async function attachSaveButton(actionsEl, item) {
     event.stopPropagation();
     const user = await getCurrentUser();
     if (!user) {
-      window.location.href = 'login.html';
+      window.location.href = 'profile-picker.html';
       return;
     }
 
@@ -333,7 +333,7 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
     event.stopPropagation();
     const user = await getCurrentUser();
     if (!user) {
-      window.location.href = 'login.html';
+      window.location.href = 'profile-picker.html';
       return;
     }
 
@@ -397,7 +397,7 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
     event.stopPropagation();
     const user = await getCurrentUser();
     if (!user) {
-      window.location.href = 'login.html';
+      window.location.href = 'profile-picker.html';
       return;
     }
 

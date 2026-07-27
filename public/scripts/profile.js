@@ -1,6 +1,7 @@
 function renderHeader(user) {
   document.getElementById('profile-name').textContent = user.displayName;
-  document.getElementById('profile-email').textContent = user.email;
+  const memberSince = new Date(user.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  document.getElementById('profile-email').textContent = `Local profile since ${memberSince}`;
 
   const initials = user.displayName
     .trim()
@@ -104,11 +105,31 @@ async function refreshAll() {
   await Promise.all([loadStats(), ...MEDIA_SECTIONS.map(renderSection)]);
 }
 
+function initExportBackup(user) {
+  const button = document.getElementById('export-backup-btn');
+  const status = document.getElementById('export-backup-status');
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    status.hidden = true;
+    try {
+      await exportBackup(user);
+      status.textContent = 'Backup ready — check your notifications or downloads.';
+    } catch (error) {
+      console.error('Backup export failed:', error);
+      status.textContent = 'Something went wrong creating the backup.';
+    }
+    status.hidden = false;
+    button.disabled = false;
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireLogin();
   if (!user) return;
 
   renderHeader(user);
+  initExportBackup(user);
   actionContext = await fetchStandardActionContext();
   refreshAll();
 });

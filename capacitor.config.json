@@ -1,0 +1,10 @@
+{
+  "appId": "com.tvtimeclone.app",
+  "appName": "TVTimeClone",
+  "webDir": "public",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": false
+    }
+  }
+}

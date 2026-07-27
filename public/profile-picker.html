@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Who's watching?</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <link rel="stylesheet" href="styles/login.css">
+  <script type="text/javascript" src="scripts/localDb.js" defer></script>
+  <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/backup.js" defer></script>
+  <script type="text/javascript" src="scripts/profile-picker.js" defer></script>
+</head>
+<body class="auth-body">
+  <div class="auth-card profile-picker-card">
+    <h1 class="logo">TVTimeClone</h1>
+
+    <div id="profile-list" class="profile-list"></div>
+    <p id="profile-empty" class="profile-empty" hidden>No profiles yet — create one to get started.</p>
+
+    <div class="profile-form-actions">
+      <button id="new-profile-btn" type="button" class="list-chip new-list-chip">+ New Profile</button>
+      <button id="import-backup-btn" type="button" class="list-chip">Import Backup</button>
+    </div>
+    <input type="file" id="import-backup-input" accept="application/json" hidden>
+
+    <form id="profile-form" class="auth-form" hidden>
+      <input type="hidden" name="editingId">
+      <label>Display Name<input type="text" name="displayName" required></label>
+      <label>TMDB API Key<input type="text" name="tmdbApiKey" required placeholder="Your own free TMDB API key"></label>
+      <div class="profile-form-actions">
+        <button type="submit" id="profile-form-submit">Create Profile</button>
+        <button type="button" id="profile-form-cancel" class="secondary-btn">Cancel</button>
+      </div>
+    </form>
+
+    <p id="profile-error" class="auth-error" hidden></p>
+
+    <div class="tmdb-attribution">
+      <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
+        <img src="images/tmdb-logo.svg" alt="TMDB">
+      </a>
+      <p>This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Each profile uses its own TMDB API key, entered above — get a free one at themoviedb.org.</p>
+    </div>
+  </div>
+</body>
+</html>

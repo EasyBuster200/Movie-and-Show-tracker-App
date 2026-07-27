@@ -261,7 +261,7 @@ async function attachStarRating(container, item) {
   async function selectRating(starValue) {
     const user = await getCurrentUser();
     if (!user) {
-      window.location.href = 'login.html';
+      window.location.href = 'profile-picker.html';
       return;
     }
 
@@ -355,7 +355,7 @@ function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarke
     watchedBtn.addEventListener('click', async () => {
       const user = await getCurrentUser();
       if (!user) {
-        window.location.href = 'login.html';
+        window.location.href = 'profile-picker.html';
         return;
       }
       const nowWatched = !watchedSet.has(key);

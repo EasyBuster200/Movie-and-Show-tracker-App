@@ -82,3 +82,82 @@
   font-size: 0.85rem;
   text-align: center;
 }
+
+.profile-picker-card {
+  width: 380px;
+}
+
+.profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  margin-bottom: 1em;
+}
+
+.profile-empty {
+  color: var(--secondary-text-clr);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-bottom: 1em;
+}
+
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.6em 0.8em;
+  border: 1px solid var(--line-clr);
+  border-radius: 0.5em;
+  cursor: pointer;
+}
+
+.profile-row:hover {
+  background-color: var(--hover-clr);
+}
+
+.profile-row-avatar {
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+  background-color: var(--accent-clr);
+  color: var(--text-clr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.profile-row-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.profile-row-action {
+  background: none;
+  border: none;
+  color: var(--secondary-text-clr);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.3em 0.5em;
+}
+
+.profile-row-action:hover {
+  color: var(--text-clr);
+}
+
+.profile-form-actions {
+  display: flex;
+  gap: 0.6em;
+}
+
+.profile-form-actions button {
+  flex: 1;
+}
+
+.secondary-btn {
+  background-color: var(--card-clr) !important;
+  border: 1px solid var(--line-clr) !important;
+  color: var(--text-clr) !important;
+}

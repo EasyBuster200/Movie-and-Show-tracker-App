@@ -573,9 +573,19 @@ main {
   align-items: center;
 }
 
-.card-action:hover:not(:disabled), .card-action.open {
+.card-action.open {
   color: var(--accent-clr);
   border-color: var(--accent-clr);
+}
+
+/* Touchscreens simulate :hover on tap and don't clear it until a tap elsewhere registers a new
+   target, so a hover-only accent color would look "stuck" active after toggling off. Only apply
+   it on devices that have real hovering (mouse/trackpad). */
+@media (hover: hover) and (pointer: fine) {
+  .card-action:hover:not(:disabled) {
+    color: var(--accent-clr);
+    border-color: var(--accent-clr);
+  }
 }
 
 .card-action.active {
@@ -625,15 +635,21 @@ main {
   right: 8px;
 }
 
-.card-overlay-actions .card-action:hover:not(:disabled),
 .card-overlay-actions .card-action.active {
   color: #fff;
   background-color: var(--accent-clr);
 }
 
-.card-overlay-actions .remove-btn:hover:not(:disabled) {
-  color: #fff;
-  background-color: var(--danger-clr);
+@media (hover: hover) and (pointer: fine) {
+  .card-overlay-actions .card-action:hover:not(:disabled) {
+    color: #fff;
+    background-color: var(--accent-clr);
+  }
+
+  .card-overlay-actions .remove-btn:hover:not(:disabled) {
+    color: #fff;
+    background-color: var(--danger-clr);
+  }
 }
 
 
