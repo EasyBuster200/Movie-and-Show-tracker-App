@@ -35,7 +35,15 @@ async function loadKeepWatching() {
   const container = document.getElementById('keep-watching');
   const emptyEl = document.getElementById('keep-watching-empty');
   try {
-    const shows = await fetch('/api/watched/shows?includeNewEpisodes=true', { credentials: 'same-origin' }).then(r => r.json());
+    const response = await fetch('/api/watched/shows?includeNewEpisodes=true', { credentials: 'same-origin' });
+    if (!response.ok) {
+      // Not logged in (or some other non-success response) — no watched shows to show,
+      // not an actual failure, so no console error.
+      container.hidden = true;
+      emptyEl.hidden = false;
+      return;
+    }
+    const shows = await response.json();
     const inProgress = shows.filter(s => s.watched > 0 && s.total != null && s.watched < s.total);
 
     if (inProgress.length === 0) {
