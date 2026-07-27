@@ -62,11 +62,22 @@ async function loadAiringSoon(context) {
   const container = document.getElementById('airing-soon');
   const emptyEl = document.getElementById('airing-soon-empty');
 
+  function showEmpty(message) {
+    container.hidden = true;
+    emptyEl.hidden = false;
+    emptyEl.textContent = message;
+  }
+
   try {
-    const shows = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' }).then(r => r.json());
+    const response = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' });
+    if (response.status === 401) {
+      showEmpty("Login and start tracking your favorite shows' next episode.");
+      return;
+    }
+
+    const shows = await response.json();
     if (!Array.isArray(shows) || shows.length === 0) {
-      container.hidden = true;
-      emptyEl.hidden = false;
+      showEmpty('No new episodes.');
       return;
     }
 
@@ -88,8 +99,7 @@ async function loadAiringSoon(context) {
     });
   } catch (error) {
     console.error('Failed to load airing soon:', error);
-    container.hidden = true;
-    emptyEl.hidden = false;
+    showEmpty('No new episodes.');
   }
 }
 
