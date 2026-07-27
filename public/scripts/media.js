@@ -20,6 +20,15 @@ function stillUrl(stillPath) {
   return stillPath ? STILL_BASE_URL + stillPath : 'https://via.placeholder.com/300x169?text=No+Image';
 }
 
+// Best-effort country guess from the browser's locale (e.g. "en-US" -> "US"), used to bias
+// "Popular" rows toward content that originates from the user's region. Falls back to US
+// when the locale has no region subtag (e.g. just "en").
+function getUserRegion() {
+  const locale = navigator.language || 'en-US';
+  const region = locale.split('-')[1];
+  return (region || 'US').toUpperCase();
+}
+
 function detailUrl(item) {
   return `detail.html?type=${item.mediaType}&id=${item.tmdbId}`;
 }

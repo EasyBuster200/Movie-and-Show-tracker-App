@@ -158,7 +158,8 @@ async function loadBrowsePage() {
 document.addEventListener('DOMContentLoaded', async () => {
   context = await fetchStandardActionContext();
 
-  loadRow('/api/tmdb/movie/popular?language=en-US', 'popular-movies');
+  const region = getUserRegion();
+  loadRow(`/api/tmdb/discover/movie?sort_by=popularity.desc&with_origin_country=${region}&page=1&language=en-US`, 'popular-movies');
   loadRow('/api/tmdb/movie/upcoming?language=en-US', 'upcoming-movies');
   loadRecommended();
   loadGenreToolbar();

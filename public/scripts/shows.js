@@ -208,7 +208,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   context = await fetchStandardActionContext();
   watchedShowIds = await fetchWatchedShowIds();
 
-  loadRow('/api/tmdb/tv/popular?language=en-US', 'popular-shows');
+  const region = getUserRegion();
+  loadRow(`/api/tmdb/discover/tv?sort_by=popularity.desc&with_origin_country=${region}&page=1&language=en-US`, 'popular-shows');
   loadKeepWatching();
   loadRecommended();
   loadGenreToolbar();
