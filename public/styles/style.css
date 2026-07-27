@@ -1199,7 +1199,23 @@ main {
 
   .user-rating {
     margin-left: 0;
+    /* Forces the rating widget onto its own full-width line below the action icons (nothing
+       else fits beside a 100%-basis item), so justify-content:center centers the star+value+
+       clear group against the full row width instead of just hugging its own content size.
+       That's what makes the stars sit centered while unrated, then shift left as the (x/10)
+       value and Clear button appear once a rating is given - the group as a whole stays
+       centered, but its first element (the stars) is no longer the center of it alone. */
+    flex-basis: 100%;
     justify-content: center;
+  }
+
+  /* min-width:3.5em (desktop) reserves that space even while the text is empty, and even at
+     0 width it'd still take a share of .user-rating's gap since it's still flex-participating -
+     both throw off centering the unrated stars with an invisible gap to their right. Dropping
+     it out of flow entirely while empty (same trick .clear-rating-btn already uses via
+     [hidden]) fixes both; it returns the moment a rating gives it text. */
+  .user-rating-value:empty {
+    display: none;
   }
 
   .episode-card {
