@@ -30,53 +30,9 @@ function initSearchBar() {
   }
 
   function renderResults(rawResults) {
-    const items = rawResults
-      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-      .slice(0, 8)
-      .map(normalizeTmdbTrendingItem);
-
-    resultsEl.innerHTML = '';
-
-    if (items.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'search-empty';
-      empty.textContent = 'No results found.';
-      resultsEl.appendChild(empty);
-      resultsEl.hidden = false;
-      return;
-    }
-
-    items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'search-result-row';
-
-      const img = document.createElement('img');
-      img.src = posterUrl(item.posterPath);
-      img.alt = item.title;
-      row.appendChild(img);
-
-      const info = document.createElement('div');
-      info.className = 'search-result-info';
-
-      const title = document.createElement('p');
-      title.className = 'search-result-title';
-      title.textContent = item.title;
-      info.appendChild(title);
-
-      const meta = document.createElement('p');
-      meta.className = 'search-result-meta';
-      meta.textContent = `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
-      info.appendChild(meta);
-
-      row.appendChild(info);
-
-      row.addEventListener('click', () => {
-        window.location.href = detailUrl(item);
-      });
-
-      resultsEl.appendChild(row);
+    renderSearchResultRows(resultsEl, rawResults, item => {
+      window.location.href = detailUrl(item);
     });
-
     resultsEl.hidden = false;
   }
 

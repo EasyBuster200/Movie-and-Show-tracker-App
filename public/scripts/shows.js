@@ -124,56 +124,6 @@ async function loadGenreToolbar() {
   }
 }
 
-function renderPagination(current, totalPages) {
-  const pagination = document.getElementById('browse-pagination');
-  pagination.innerHTML = '';
-  if (!totalPages || totalPages <= 1) return;
-
-  function pageButton(label, page, { disabled = false, active = false } = {}) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'page-btn';
-    if (active) btn.classList.add('active');
-    btn.textContent = label;
-    btn.disabled = disabled;
-    if (!disabled) {
-      btn.addEventListener('click', () => {
-        currentPage = page;
-        loadBrowsePage();
-      });
-    }
-    return btn;
-  }
-
-  function ellipsis() {
-    const span = document.createElement('span');
-    span.className = 'page-ellipsis';
-    span.textContent = '…';
-    return span;
-  }
-
-  pagination.appendChild(pageButton('Prev', current - 1, { disabled: current <= 1 }));
-
-  const windowStart = Math.max(1, current - 2);
-  const windowEnd = Math.min(totalPages, current + 2);
-
-  if (windowStart > 1) {
-    pagination.appendChild(pageButton('1', 1));
-    if (windowStart > 2) pagination.appendChild(ellipsis());
-  }
-
-  for (let page = windowStart; page <= windowEnd; page++) {
-    pagination.appendChild(pageButton(String(page), page, { active: page === current }));
-  }
-
-  if (windowEnd < totalPages) {
-    if (windowEnd < totalPages - 1) pagination.appendChild(ellipsis());
-    pagination.appendChild(pageButton(String(totalPages), totalPages));
-  }
-
-  pagination.appendChild(pageButton('Next', current + 1, { disabled: current >= totalPages }));
-}
-
 async function loadBrowsePage() {
   const grid = document.getElementById('browse-grid');
   const params = new URLSearchParams({
@@ -197,7 +147,10 @@ async function loadBrowsePage() {
         attachStandardActions(card, item, context);
         grid.appendChild(card);
       });
-    renderPagination(data.page || currentPage, data.total_pages || 1);
+    renderPagination(document.getElementById('browse-pagination'), data.page || currentPage, data.total_pages || 1, page => {
+      currentPage = page;
+      loadBrowsePage();
+    });
   } catch (error) {
     console.error('Failed to load browse grid:', error);
     grid.innerHTML = '<p>Failed to load shows.</p>';

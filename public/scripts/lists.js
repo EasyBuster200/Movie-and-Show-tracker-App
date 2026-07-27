@@ -104,56 +104,15 @@ function buildAddItemCard(listId, onItemAdded) {
   }
 
   function renderResults(rawResults, resultsEl) {
-    const items = rawResults
-      .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
-      .slice(0, 8)
-      .map(normalizeTmdbTrendingItem);
-
-    resultsEl.innerHTML = '';
-    if (items.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'search-empty';
-      empty.textContent = 'No results found.';
-      resultsEl.appendChild(empty);
-      return;
-    }
-
-    items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'search-result-row';
-
-      const img = document.createElement('img');
-      img.src = posterUrl(item.posterPath);
-      img.alt = item.title;
-      row.appendChild(img);
-
-      const info = document.createElement('div');
-      info.className = 'search-result-info';
-
-      const title = document.createElement('p');
-      title.className = 'search-result-title';
-      title.textContent = item.title;
-      info.appendChild(title);
-
-      const meta = document.createElement('p');
-      meta.className = 'search-result-meta';
-      meta.textContent = `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
-      info.appendChild(meta);
-
-      row.appendChild(info);
-
-      row.addEventListener('click', async () => {
-        await fetch(`/api/lists/${listId}/items`, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tmdbId: item.tmdbId, mediaType: item.mediaType }),
-        });
-        closeSearch();
-        onItemAdded();
+    renderSearchResultRows(resultsEl, rawResults, async item => {
+      await fetch(`/api/lists/${listId}/items`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tmdbId: item.tmdbId, mediaType: item.mediaType }),
       });
-
-      resultsEl.appendChild(row);
+      closeSearch();
+      onItemAdded();
     });
   }
 

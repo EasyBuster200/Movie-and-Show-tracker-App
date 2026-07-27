@@ -29,8 +29,106 @@ function getUserRegion() {
   return (region || 'US').toUpperCase();
 }
 
+// Windowed Prev/1…current±2…Last/Next pagination, shared by every page with a paginated
+// TMDB grid (Movies/Shows browse grids, search results). `onPageChange(page)` is called when
+// a page button is clicked; it's up to the caller to update its own page state and reload.
+function renderPagination(container, currentPage, totalPages, onPageChange) {
+  container.innerHTML = '';
+  if (!totalPages || totalPages <= 1) return;
+
+  function pageButton(label, page, { disabled = false, active = false } = {}) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'page-btn';
+    if (active) btn.classList.add('active');
+    btn.textContent = label;
+    btn.disabled = disabled;
+    if (!disabled) {
+      btn.addEventListener('click', () => onPageChange(page));
+    }
+    return btn;
+  }
+
+  function ellipsis() {
+    const span = document.createElement('span');
+    span.className = 'page-ellipsis';
+    span.textContent = '…';
+    return span;
+  }
+
+  container.appendChild(pageButton('Prev', currentPage - 1, { disabled: currentPage <= 1 }));
+
+  const windowStart = Math.max(1, currentPage - 2);
+  const windowEnd = Math.min(totalPages, currentPage + 2);
+
+  if (windowStart > 1) {
+    container.appendChild(pageButton('1', 1));
+    if (windowStart > 2) container.appendChild(ellipsis());
+  }
+
+  for (let page = windowStart; page <= windowEnd; page++) {
+    container.appendChild(pageButton(String(page), page, { active: page === currentPage }));
+  }
+
+  if (windowEnd < totalPages) {
+    if (windowEnd < totalPages - 1) container.appendChild(ellipsis());
+    container.appendChild(pageButton(String(totalPages), totalPages));
+  }
+
+  container.appendChild(pageButton('Next', currentPage + 1, { disabled: currentPage >= totalPages }));
+}
+
 function detailUrl(item) {
   return `detail.html?type=${item.mediaType}&id=${item.tmdbId}`;
+}
+
+// Renders TMDB search-multi results into `resultsEl` as compact poster+title+meta rows,
+// shared by the typeahead dropdown (search.js) and the Lists quick-add card (lists.js).
+// `onSelect(item)` is called on row click — callers decide what a click means (navigate to
+// the detail page, add to a list, etc); this function only owns rendering, not `.hidden`
+// toggling, since that's presentational and differs per caller.
+function renderSearchResultRows(resultsEl, rawResults, onSelect) {
+  const items = rawResults
+    .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+    .slice(0, 8)
+    .map(normalizeTmdbTrendingItem);
+
+  resultsEl.innerHTML = '';
+
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'search-empty';
+    empty.textContent = 'No results found.';
+    resultsEl.appendChild(empty);
+    return;
+  }
+
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'search-result-row';
+
+    const img = document.createElement('img');
+    img.src = posterUrl(item.posterPath);
+    img.alt = item.title;
+    row.appendChild(img);
+
+    const info = document.createElement('div');
+    info.className = 'search-result-info';
+
+    const title = document.createElement('p');
+    title.className = 'search-result-title';
+    title.textContent = item.title;
+    info.appendChild(title);
+
+    const meta = document.createElement('p');
+    meta.className = 'search-result-meta';
+    meta.textContent = `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
+    info.appendChild(meta);
+
+    row.appendChild(info);
+    row.addEventListener('click', () => onSelect(item));
+    resultsEl.appendChild(row);
+  });
 }
 
 function formatRating(voteAverage) {
