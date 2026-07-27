@@ -49,6 +49,34 @@ body {
   transition: 300ms ease-in-out;
   overflow: hidden;
   text-wrap: nowrap;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.tmdb-attribution {
+  margin-top: auto;
+  padding: 1em 0.85em 0.5em;
+  border-top: 1px solid var(--line-clr);
+}
+
+.tmdb-attribution img {
+  height: 20px;
+  width: auto;
+  display: block;
+  opacity: 0.85;
+}
+
+.tmdb-attribution p {
+  margin-top: 0.6em;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  color: var(--secondary-text-clr);
+  text-wrap: wrap;
+}
+
+#sidebar.close .tmdb-attribution {
+  display: none;
 }
 
 #sidebar.no-transition {
@@ -1106,6 +1134,13 @@ main {
        .save-popover (10) / .search-results (20) / .confirm-overlay (200) so those can still
        float above the bar when they open near the bottom of a page. */
     z-index: 5;
+
+    /* The bottom bar is only 60px tall - no room for a logo + sentence of text. Mobile users
+       still see the same credit on login.html instead, which isn't part of this collapsing
+       sidebar system. */
+    .tmdb-attribution {
+      display: none;
+    }
 
     > ul {
       padding: 0;
