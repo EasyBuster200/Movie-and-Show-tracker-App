@@ -2,9 +2,9 @@
   "name": "tvtimeclone",
   "version": "1.0.0",
   "description": "",
-  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
+    "sync": "cap sync android",
+    "open:android": "cap open android",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -14,12 +14,7 @@
     "@capacitor/android": "^6.2.1",
     "@capacitor/core": "^6.2.1",
     "@capacitor/filesystem": "^6.0.4",
-    "@capacitor/share": "^6.0.4",
-    "bcrypt": "^6.0.0",
-    "better-sqlite3": "^11.10.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-session": "^1.19.0"
+    "@capacitor/share": "^6.0.4"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.1"

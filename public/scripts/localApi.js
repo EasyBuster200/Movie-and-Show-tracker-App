@@ -3,11 +3,12 @@
 // Must be the FIRST script tag on every page (before profiles.js/auth.js), so the patch is
 // installed before any page-load-time fetch fires.
 //
-// For now this only handles the TMDB passthrough (`/api/tmdb/*`) — each profile calls TMDB
-// directly using its own locally-stored API key (TMDB sends `access-control-allow-origin: *`,
-// so this works from a browser/WebView with no server in between). Everything else under
-// `/api/*` still falls through to the real network fetch until the remaining local handlers
-// (lists/watched/ratings/favorites/stats/recommendations) are ported.
+// Fully local now — every route below (lists/watched/ratings/favorites/stats/recommendations)
+// is handled here against the active profile's IndexedDB, plus the TMDB passthrough
+// (`/api/tmdb/*`), where each profile calls TMDB directly using its own locally-stored API key
+// (TMDB sends `access-control-allow-origin: *`, so this works from a browser/WebView with no
+// server in between). There is no remaining server-backed fallback — see route()/matchPath()
+// below for the full list of handled paths.
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const originalFetch = window.fetch.bind(window);

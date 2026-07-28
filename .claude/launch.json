@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "tvtimeclone",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "public", "-l", "3000"],
       "port": 3000,
       "autoPort": true
     }
