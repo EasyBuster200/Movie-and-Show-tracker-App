@@ -171,7 +171,7 @@ function openImportChooser() {
 
   choice(
     'An old TV Time export',
-    'The CSV files from a TV Time GDPR data request — resolves your shows against TMDB and marks watched/adds them to a list.',
+    'Select the user_tv_show_data.csv file from a TV Time GDPR data request — resolves your shows against TMDB and marks watched/adds them to a list.',
     () => document.getElementById('import-tvtime-input').click()
   );
   choice(
@@ -231,68 +231,90 @@ function initAppBackupImport() {
   });
 }
 
+// Replaces the modal's body with a message + a single OK button, for any dead-end state
+// (no file selected, wrong file, or an outright error) instead of leaving the dialog stuck
+// showing stale "Reading files…" text with no way out and no explanation.
+function showDialogDeadEnd(overlay, modal, message) {
+  modal.innerHTML = '';
+  const p = document.createElement('p');
+  p.textContent = message;
+  const actions = document.createElement('div');
+  actions.className = 'confirm-actions';
+  const okBtn = document.createElement('button');
+  okBtn.type = 'button';
+  okBtn.className = 'confirm-btn';
+  okBtn.textContent = 'OK';
+  okBtn.addEventListener('click', () => overlay.remove());
+  actions.appendChild(okBtn);
+  modal.appendChild(p);
+  modal.appendChild(actions);
+}
+
 function initTvTimeImport() {
   const input = document.getElementById('import-tvtime-input');
   input.addEventListener('change', async () => {
     const files = [...input.files];
     input.value = '';
-    if (files.length === 0) return;
 
     const { overlay, modal } = buildDialog('import-status-modal');
     const status = document.createElement('p');
     status.textContent = 'Reading files…';
     modal.appendChild(status);
 
-    const rows = await findTvShowDataRows(files);
-    if (!rows) {
-      status.textContent = "Couldn't find a user_tv_show_data.csv in what you selected — that's the file from your TV Time export with the actual show data.";
+    if (files.length === 0) {
+      // The picker returned with nothing selected - some Android file-manager apps do this on
+      // multi-select even after files look tapped/highlighted, rather than silently doing
+      // nothing with no feedback at all.
+      showDialogDeadEnd(overlay, modal, "No file came back from the picker. Try selecting just user_tv_show_data.csv on its own rather than several files at once.");
+      return;
+    }
+
+    try {
+      const rows = await findTvShowDataRows(files);
+      if (!rows) {
+        showDialogDeadEnd(overlay, modal, "That doesn't look like user_tv_show_data.csv — that's the specific file from your TV Time export with the actual show data, not the others.");
+        return;
+      }
+
+      const summary = await importTvTimeShows(rows, message => { status.textContent = message; });
+
+      modal.innerHTML = '';
+      const resultTitle = document.createElement('p');
+      resultTitle.textContent = 'Import complete.';
+      modal.appendChild(resultTitle);
+
+      const list = document.createElement('div');
+      list.className = 'import-status-list';
+      const lines = [
+        `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
+        `${summary.addedToList.length} show${summary.addedToList.length === 1 ? '' : 's'} added to "TV Time Shows"${summary.addedToList.length ? `: ${summary.addedToList.join(', ')}` : ''}.`,
+      ];
+      if (summary.unmatched.length) {
+        lines.push(`${summary.unmatched.length} couldn't be matched on TMDB: ${summary.unmatched.join(', ')}.`);
+      }
+      lines.forEach(line => {
+        const p = document.createElement('p');
+        p.textContent = line;
+        list.appendChild(p);
+      });
+      modal.appendChild(list);
+
       const actions = document.createElement('div');
       actions.className = 'confirm-actions';
       const okBtn = document.createElement('button');
       okBtn.type = 'button';
-      okBtn.className = 'confirm-btn';
-      okBtn.textContent = 'OK';
-      okBtn.addEventListener('click', () => overlay.remove());
+      okBtn.className = 'confirm-btn confirm-btn-yes';
+      okBtn.textContent = 'Done';
+      okBtn.addEventListener('click', () => {
+        overlay.remove();
+        refreshAll();
+      });
       actions.appendChild(okBtn);
       modal.appendChild(actions);
-      return;
+    } catch (error) {
+      console.error('TV Time import failed:', error);
+      showDialogDeadEnd(overlay, modal, `Something went wrong reading that file: ${error.message || error}`);
     }
-
-    const summary = await importTvTimeShows(rows, message => { status.textContent = message; });
-
-    modal.innerHTML = '';
-    const resultTitle = document.createElement('p');
-    resultTitle.textContent = 'Import complete.';
-    modal.appendChild(resultTitle);
-
-    const list = document.createElement('div');
-    list.className = 'import-status-list';
-    const lines = [
-      `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
-      `${summary.addedToList.length} show${summary.addedToList.length === 1 ? '' : 's'} added to "TV Time Shows"${summary.addedToList.length ? `: ${summary.addedToList.join(', ')}` : ''}.`,
-    ];
-    if (summary.unmatched.length) {
-      lines.push(`${summary.unmatched.length} couldn't be matched on TMDB: ${summary.unmatched.join(', ')}.`);
-    }
-    lines.forEach(line => {
-      const p = document.createElement('p');
-      p.textContent = line;
-      list.appendChild(p);
-    });
-    modal.appendChild(list);
-
-    const actions = document.createElement('div');
-    actions.className = 'confirm-actions';
-    const okBtn = document.createElement('button');
-    okBtn.type = 'button';
-    okBtn.className = 'confirm-btn confirm-btn-yes';
-    okBtn.textContent = 'Done';
-    okBtn.addEventListener('click', () => {
-      overlay.remove();
-      refreshAll();
-    });
-    actions.appendChild(okBtn);
-    modal.appendChild(actions);
   });
 }
 
