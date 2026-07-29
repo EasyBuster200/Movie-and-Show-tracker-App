@@ -1092,6 +1092,7 @@ main {
   border-radius: 0.5em;
   padding: 0.5em;
   min-width: 160px;
+  box-sizing: border-box;
   z-index: 10;
   display: flex;
   flex-direction: column;
@@ -1278,6 +1279,19 @@ main {
     height: 160px;
   }
 
+  /* Every card is this same size on mobile, in a .media-container row or a .media-grid -
+     otherwise things sized against the 200px desktop card (like .save-popover below) have to
+     account for two different card widths, and a fixed-size popover on a smaller card either
+     overflows the card or the viewport. */
+  .card {
+    width: 150px;
+  }
+
+  .card img {
+    height: auto;
+    aspect-ratio: 2 / 3;
+  }
+
   /* .media-grid's 200px fixed-width columns only fit one per row on a phone screen,
      leaving it lopsided against the left edge. Two narrower columns use the width better. */
   .media-grid {
@@ -1289,9 +1303,8 @@ main {
     width: 100%;
   }
 
-  .media-grid .card img {
-    height: auto;
-    aspect-ratio: 2 / 3;
+  .save-popover {
+    min-width: 130px;
   }
 }
 
