@@ -69,6 +69,5 @@ Also: `movies.js`/`shows.js`'s "Popular" rows use `discover/movie|tv?with_origin
 
 ## Known gaps
 
-- **No in-app way to switch profiles or log out.** `logout()` (`auth.js`) exists but nothing calls it — once a profile is active, the only way back to `profile-picker.html` is clearing app storage. Worth adding a button on `profile.html`.
 - **No automated tests**, despite `localApi.js` re-implementing nontrivial business logic (recommendations ranking, new-episode heuristic, stats aggregation) that used to live server-side — nothing catches drift from the original behavior it's meant to mirror.
 - The old server-backed website's data (from before this branch's rebuild) is **not** on this branch and has no migration path into a local profile's IndexedDB — it's a different storage shape entirely. If you need it, check `master`.
