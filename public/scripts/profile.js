@@ -105,6 +105,197 @@ async function refreshAll() {
   await Promise.all([loadStats(), ...MEDIA_SECTIONS.map(renderSection)]);
 }
 
+function initProfileMenu() {
+  const menuBtn = document.getElementById('profile-menu-btn');
+  const dropdown = document.getElementById('profile-menu-dropdown');
+
+  function closeMenu() {
+    dropdown.hidden = true;
+    menuBtn.classList.remove('open');
+  }
+
+  menuBtn.addEventListener('click', event => {
+    event.stopPropagation();
+    const willOpen = dropdown.hidden;
+    closeMenu();
+    if (willOpen) {
+      dropdown.hidden = false;
+      menuBtn.classList.add('open');
+    }
+  });
+
+  document.addEventListener('click', event => {
+    if (!dropdown.hidden && !dropdown.contains(event.target) && event.target !== menuBtn) closeMenu();
+  });
+
+  return closeMenu;
+}
+
+function buildDialog(className) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  const modal = document.createElement('div');
+  modal.className = `confirm-modal ${className}`;
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  return { overlay, modal };
+}
+
+// The moved Import action: ask which kind of file this is before touching anything, since a
+// TV Time export and an app backup need completely different handling.
+function openImportChooser() {
+  const { overlay, modal } = buildDialog('import-chooser-modal');
+
+  const title = document.createElement('p');
+  title.textContent = 'What are you importing?';
+  modal.appendChild(title);
+
+  function choice(titleText, descText, onClick) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'import-choice-btn';
+    const t = document.createElement('div');
+    t.className = 'import-choice-title';
+    t.textContent = titleText;
+    const d = document.createElement('div');
+    d.className = 'import-choice-desc';
+    d.textContent = descText;
+    btn.appendChild(t);
+    btn.appendChild(d);
+    btn.addEventListener('click', () => {
+      overlay.remove();
+      onClick();
+    });
+    modal.appendChild(btn);
+  }
+
+  choice(
+    'An old TV Time export',
+    'The CSV files from a TV Time GDPR data request — resolves your shows against TMDB and marks watched/adds them to a list.',
+    () => document.getElementById('import-tvtime-input').click()
+  );
+  choice(
+    "One of this app's own backups",
+    'A .json file exported from this app\'s "Export Backup" — restores it as a new profile.',
+    () => document.getElementById('import-app-input').click()
+  );
+
+  const cancelRow = document.createElement('div');
+  cancelRow.className = 'confirm-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'confirm-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+  cancelRow.appendChild(cancelBtn);
+  modal.appendChild(cancelRow);
+
+  overlay.addEventListener('click', event => { if (event.target === overlay) overlay.remove(); });
+}
+
+function initAppBackupImport() {
+  const input = document.getElementById('import-app-input');
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+
+    try {
+      const profile = await importBackupFile(file);
+      const { overlay, modal } = buildDialog('');
+      const p = document.createElement('p');
+      p.textContent = `Imported as a new profile, "${profile.displayName}".`;
+      const actions = document.createElement('div');
+      actions.className = 'confirm-actions';
+      const stayBtn = document.createElement('button');
+      stayBtn.type = 'button';
+      stayBtn.className = 'confirm-btn';
+      stayBtn.textContent = 'Stay Here';
+      stayBtn.addEventListener('click', () => overlay.remove());
+      const switchBtn = document.createElement('button');
+      switchBtn.type = 'button';
+      switchBtn.className = 'confirm-btn confirm-btn-yes';
+      switchBtn.textContent = 'Switch to It';
+      switchBtn.addEventListener('click', () => {
+        setActiveProfileId(profile.id);
+        window.location.href = 'main.html';
+      });
+      actions.appendChild(stayBtn);
+      actions.appendChild(switchBtn);
+      modal.appendChild(p);
+      modal.appendChild(actions);
+    } catch (error) {
+      console.error('Backup import failed:', error);
+      window.alert(error.message || 'Could not import that backup file.');
+    }
+  });
+}
+
+function initTvTimeImport() {
+  const input = document.getElementById('import-tvtime-input');
+  input.addEventListener('change', async () => {
+    const files = [...input.files];
+    input.value = '';
+    if (files.length === 0) return;
+
+    const { overlay, modal } = buildDialog('import-status-modal');
+    const status = document.createElement('p');
+    status.textContent = 'Reading files…';
+    modal.appendChild(status);
+
+    const rows = await findTvShowDataRows(files);
+    if (!rows) {
+      status.textContent = "Couldn't find a user_tv_show_data.csv in what you selected — that's the file from your TV Time export with the actual show data.";
+      const actions = document.createElement('div');
+      actions.className = 'confirm-actions';
+      const okBtn = document.createElement('button');
+      okBtn.type = 'button';
+      okBtn.className = 'confirm-btn';
+      okBtn.textContent = 'OK';
+      okBtn.addEventListener('click', () => overlay.remove());
+      actions.appendChild(okBtn);
+      modal.appendChild(actions);
+      return;
+    }
+
+    const summary = await importTvTimeShows(rows, message => { status.textContent = message; });
+
+    modal.innerHTML = '';
+    const resultTitle = document.createElement('p');
+    resultTitle.textContent = 'Import complete.';
+    modal.appendChild(resultTitle);
+
+    const list = document.createElement('div');
+    list.className = 'import-status-list';
+    const lines = [
+      `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
+      `${summary.addedToList.length} show${summary.addedToList.length === 1 ? '' : 's'} added to "TV Time Shows"${summary.addedToList.length ? `: ${summary.addedToList.join(', ')}` : ''}.`,
+    ];
+    if (summary.unmatched.length) {
+      lines.push(`${summary.unmatched.length} couldn't be matched on TMDB: ${summary.unmatched.join(', ')}.`);
+    }
+    lines.forEach(line => {
+      const p = document.createElement('p');
+      p.textContent = line;
+      list.appendChild(p);
+    });
+    modal.appendChild(list);
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm-actions';
+    const okBtn = document.createElement('button');
+    okBtn.type = 'button';
+    okBtn.className = 'confirm-btn confirm-btn-yes';
+    okBtn.textContent = 'Done';
+    okBtn.addEventListener('click', () => {
+      overlay.remove();
+      refreshAll();
+    });
+    actions.appendChild(okBtn);
+    modal.appendChild(actions);
+  });
+}
+
 function initExportBackup(user) {
   const button = document.getElementById('export-backup-btn');
   const status = document.getElementById('export-backup-status');
@@ -129,7 +320,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!user) return;
 
   renderHeader(user);
+  const closeMenu = initProfileMenu();
   initExportBackup(user);
+  document.getElementById('import-btn').addEventListener('click', () => {
+    closeMenu();
+    openImportChooser();
+  });
+  initAppBackupImport();
+  initTvTimeImport();
   actionContext = await fetchStandardActionContext();
   refreshAll();
 });
