@@ -315,6 +315,40 @@ function initExportBackup(user) {
   });
 }
 
+// Reuses profiles.js's deleteProfile(), which already clears the active-profile pointer if the
+// deleted profile was active and wipes its IndexedDB - so all this needs to do afterward is
+// leave the now-profile-less app.
+function openDeleteAccountConfirm(user) {
+  const { overlay, modal } = buildDialog('');
+  const p = document.createElement('p');
+  p.textContent = `Delete "${user.displayName}" and all of its watched/list/rating data? This can't be undone.`;
+
+  const actions = document.createElement('div');
+  actions.className = 'confirm-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'confirm-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'confirm-btn confirm-btn-danger';
+  deleteBtn.textContent = 'Delete Account';
+  deleteBtn.addEventListener('click', () => {
+    deleteProfile(user.id);
+    window.location.href = 'profile-picker.html';
+  });
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(deleteBtn);
+  modal.appendChild(p);
+  modal.appendChild(actions);
+
+  overlay.addEventListener('click', event => { if (event.target === overlay) overlay.remove(); });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const user = await requireLogin();
   if (!user) return;
@@ -328,6 +362,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   initAppBackupImport();
   initTvTimeImport();
+  document.getElementById('switch-account-btn').addEventListener('click', () => {
+    closeMenu();
+    logout();
+  });
+  document.getElementById('delete-account-btn').addEventListener('click', () => {
+    closeMenu();
+    openDeleteAccountConfirm(user);
+  });
   actionContext = await fetchStandardActionContext();
   refreshAll();
 });
