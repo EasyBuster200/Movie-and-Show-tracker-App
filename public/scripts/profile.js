@@ -171,7 +171,7 @@ function openImportChooser() {
 
   choice(
     'An old TV Time export',
-    'Select the user_tv_show_data.csv file from a TV Time GDPR data request — resolves your shows against TMDB and marks watched/adds them to a list.',
+'Select all the files from a TV Time GDPR data request (or at least user_tv_show_data.csv and tracking-prod-records.csv, for exact per-episode results) — resolves your shows against TMDB and marks watched/adds them to a list.',
     () => document.getElementById('import-tvtime-input').click()
   );
   choice(
@@ -265,18 +265,18 @@ function initTvTimeImport() {
       // The picker returned with nothing selected - some Android file-manager apps do this on
       // multi-select even after files look tapped/highlighted, rather than silently doing
       // nothing with no feedback at all.
-      showDialogDeadEnd(overlay, modal, "No file came back from the picker. Try selecting just user_tv_show_data.csv on its own rather than several files at once.");
+      showDialogDeadEnd(overlay, modal, "No file came back from the picker. Try again and select at least user_tv_show_data.csv.");
       return;
     }
 
     try {
-      const rows = await findTvShowDataRows(files);
-      if (!rows) {
-        showDialogDeadEnd(overlay, modal, "That doesn't look like user_tv_show_data.csv — that's the specific file from your TV Time export with the actual show data, not the others.");
+      const { showRows, watchRowsBySeriesId } = await findTvTimeData(files);
+      if (!showRows) {
+        showDialogDeadEnd(overlay, modal, "That doesn't look like a TV Time export — none of the selected files match user_tv_show_data.csv, the one with your actual show list.");
         return;
       }
 
-      const summary = await importTvTimeShows(rows, message => { status.textContent = message; });
+      const summary = await importTvTimeShows(showRows, watchRowsBySeriesId, message => { status.textContent = message; });
 
       modal.innerHTML = '';
       const resultTitle = document.createElement('p');
@@ -286,9 +286,16 @@ function initTvTimeImport() {
       const list = document.createElement('div');
       list.className = 'import-status-list';
       const lines = [
-        `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
+        `${summary.markedExact.length} show${summary.markedExact.length === 1 ? '' : 's'} matched episode-by-episode${summary.markedExact.length ? `: ${summary.markedExact.join(', ')}` : ''}.`,
+        `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched (estimated)${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
         `${summary.addedToList.length} show${summary.addedToList.length === 1 ? '' : 's'} added to "TV Time Shows"${summary.addedToList.length ? `: ${summary.addedToList.join(', ')}` : ''}.`,
       ];
+      if (!watchRowsBySeriesId) {
+        lines.push('No tracking-prod-records.csv found, so exact episode data wasn\'t available — select it alongside user_tv_show_data.csv next time for precise per-episode results.');
+      }
+      if (summary.favorited.length) {
+        lines.push(`${summary.favorited.length} show${summary.favorited.length === 1 ? '' : 's'} favorited: ${summary.favorited.join(', ')}.`);
+      }
       if (summary.unmatched.length) {
         lines.push(`${summary.unmatched.length} couldn't be matched on TMDB: ${summary.unmatched.join(', ')}.`);
       }

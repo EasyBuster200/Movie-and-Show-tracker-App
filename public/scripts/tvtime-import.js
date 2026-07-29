@@ -1,13 +1,22 @@
-// Imports a TV Time GDPR data export. TV Time's export is a folder of ~18 CSVs; only
-// user_tv_show_data.csv (tv_show_id, is_followed, is_favorited, nb_episodes_seen, tv_show_name,
-// user_id) has anything usable — everything else is auth tokens, analytics, or engagement
-// scores. There's no per-episode data in the export, only a total count per show, so this can't
-// reproduce exactly which episodes were watched.
+// Imports a TV Time GDPR data export (a folder of ~18 CSVs). Two files matter:
+//
+// - user_tv_show_data.csv (tv_show_id, is_followed, is_favorited, nb_episodes_seen,
+//   tv_show_name, user_id) — the full list of followed shows, one row per show.
+// - tracking-prod-records.csv — analytics-looking, but its `type=="watch"` rows are one row
+//   PER EPISODE ACTUALLY WATCHED (series_id, season_number, episode_number), and their count
+//   per show matches user_tv_show_data.csv's nb_episodes_seen exactly. This gives an *exact*
+//   watched-episode list, not just a total — despite this file's name, it's more useful here
+//   than the "real" show-list file for anything except is_favorited/the show list itself.
+//
+// If tracking-prod-records.csv isn't selected (or a show has no rows in it, meaning nothing
+// watched or an older export that lacks it), we fall back to a cruder heuristic: nb_episodes_seen
+// vs TMDB's current episode total decides "mark everything watched" vs "just add to a list".
 //
 // tv_show_id is a TheTVDB id (TV Time was built on TheTVDB, not TMDB), so each show is resolved
 // via TMDB's /find/{id}?external_source=tvdb_id — the one TMDB endpoint that maps external ids.
 
-const TV_TIME_REQUIRED_COLUMNS = ['tv_show_id', 'nb_episodes_seen', 'tv_show_name'];
+const TV_TIME_SHOW_LIST_COLUMNS = ['tv_show_id', 'nb_episodes_seen', 'tv_show_name'];
+const TV_TIME_WATCH_LOG_COLUMNS = ['series_id', 'type', 'episode_number', 'season_number'];
 const TV_TIME_LIST_NAME = 'TV Time Shows';
 
 // Minimal RFC4180-ish CSV line parser (handles quoted fields with embedded commas) - a full CSV
@@ -58,19 +67,36 @@ function parseCsv(text) {
   });
 }
 
-// Scans whatever files the user selected for the one that looks like user_tv_show_data.csv,
-// so they don't need to know which of ~18 files in their export actually matters.
-async function findTvShowDataRows(files) {
+// Scans whatever files the user selected for the two shapes that matter, so they don't need to
+// know which of ~18 files in their export actually matter. Returns { showRows, watchRowsBySeriesId }
+// — watchRowsBySeriesId maps a TVDB series id to its list of {seasonNumber, episodeNumber}, absent
+// entirely if no tracking-prod-records.csv-shaped file was found among the selection.
+async function findTvTimeData(files) {
+  let showRows = null;
+  let watchRowsBySeriesId = null;
+
   for (const file of files) {
     const text = await file.text();
     const rows = parseCsv(text);
     if (rows.length === 0) continue;
     const columns = Object.keys(rows[0]);
-    if (TV_TIME_REQUIRED_COLUMNS.every(col => columns.includes(col))) {
-      return rows;
+
+    if (!showRows && TV_TIME_SHOW_LIST_COLUMNS.every(col => columns.includes(col))) {
+      showRows = rows;
+    } else if (!watchRowsBySeriesId && TV_TIME_WATCH_LOG_COLUMNS.every(col => columns.includes(col))) {
+      watchRowsBySeriesId = new Map();
+      rows.filter(r => r.type === 'watch').forEach(r => {
+        const seriesId = Number(r.series_id);
+        const seasonNumber = Number(r.season_number);
+        const episodeNumber = Number(r.episode_number);
+        if (!seriesId || !seasonNumber || !episodeNumber) return;
+        if (!watchRowsBySeriesId.has(seriesId)) watchRowsBySeriesId.set(seriesId, []);
+        watchRowsBySeriesId.get(seriesId).push({ seasonNumber, episodeNumber });
+      });
     }
   }
-  return null;
+
+  return { showRows, watchRowsBySeriesId };
 }
 
 async function resolveTvdbShow(tvdbId) {
@@ -101,7 +127,16 @@ async function ensureTvTimeList() {
   return created.id;
 }
 
-async function markShowFullyWatched(tmdbId, show) {
+async function markExactEpisodesWatched(tmdbId, episodes) {
+  await Promise.all(episodes.map(({ seasonNumber, episodeNumber }) =>
+    fetch(`/api/watched/shows/${tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+    })
+  ));
+}
+
+async function markShowFullyWatchedHeuristic(tmdbId, show) {
   const seasons = (show.seasons || []).filter(s => s.season_number > 0);
   for (const season of seasons) {
     const episodeNumbers = Array.from({ length: season.episode_count }, (_, i) => i + 1);
@@ -114,21 +149,32 @@ async function markShowFullyWatched(tmdbId, show) {
   }
 }
 
-// Imports rows from user_tv_show_data.csv into the active profile. For each show: resolve its
-// TVDB id to a TMDB id, then compare nb_episodes_seen against TMDB's current episode total -
-// caught up (or ahead, e.g. TV Time/TMDB specials-count drift) marks every episode watched;
-// anything less just adds the show to a "TV Time Shows" list instead. onProgress(message) fires
-// as each show is processed, for a live status display.
-async function importTvTimeShows(rows, onProgress) {
-  const summary = { markedWatched: [], addedToList: [], unmatched: [] };
+async function addToTvTimeList(tmdbId) {
+  const listId = await ensureTvTimeList();
+  await fetch(`/api/lists/${listId}/items`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tmdbId, mediaType: 'tv' }),
+  });
+}
+
+// Imports the parsed TV Time export into the active profile. For each followed show: resolve
+// its TVDB id to a TMDB id, then prefer exact per-episode data from tracking-prod-records.csv
+// (watchRowsBySeriesId) over the cruder "total count vs TMDB's episode count" heuristic, which
+// only runs when no exact data was found for that show. is_favorited=1 always carries over to a
+// favorite, independent of watch state. onProgress(message) fires as each show is processed.
+async function importTvTimeShows(showRows, watchRowsBySeriesId, onProgress) {
+  const summary = { markedExact: [], markedWatched: [], addedToList: [], favorited: [], unmatched: [] };
   let tvTimeListId = null;
 
-  for (const row of rows) {
+  for (const row of showRows) {
     const showName = row.tv_show_name || `TVDB #${row.tv_show_id}`;
     onProgress(`Resolving "${showName}"…`);
 
     const tvdbId = Number(row.tv_show_id);
     const nbEpisodesSeen = Number(row.nb_episodes_seen) || 0;
+    const isFavorited = row.is_favorited === '1';
     if (!tvdbId) {
       summary.unmatched.push(showName);
       continue;
@@ -140,25 +186,32 @@ async function importTvTimeShows(rows, onProgress) {
       continue;
     }
 
-    const show = await fetch(`/api/tmdb/tv/${tmdbId}`, { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null));
-    if (!show) {
-      summary.unmatched.push(showName);
-      continue;
-    }
-
-    if (show.number_of_episodes && nbEpisodesSeen >= show.number_of_episodes) {
-      onProgress(`Marking "${showName}" fully watched…`);
-      await markShowFullyWatched(tmdbId, show);
-      summary.markedWatched.push(showName);
+    const exactEpisodes = watchRowsBySeriesId && watchRowsBySeriesId.get(tvdbId);
+    if (exactEpisodes && exactEpisodes.length > 0) {
+      onProgress(`Marking ${exactEpisodes.length} watched episode${exactEpisodes.length === 1 ? '' : 's'} of "${showName}"…`);
+      await markExactEpisodesWatched(tmdbId, exactEpisodes);
+      summary.markedExact.push(showName);
+    } else if (nbEpisodesSeen > 0) {
+      const show = await fetch(`/api/tmdb/tv/${tmdbId}`, { credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null));
+      if (show && show.number_of_episodes && nbEpisodesSeen >= show.number_of_episodes) {
+        onProgress(`Marking "${showName}" fully watched…`);
+        await markShowFullyWatchedHeuristic(tmdbId, show);
+        summary.markedWatched.push(showName);
+      } else {
+        if (!tvTimeListId) tvTimeListId = await ensureTvTimeList();
+        await addToTvTimeList(tmdbId);
+        summary.addedToList.push(showName);
+      }
     } else {
       if (!tvTimeListId) tvTimeListId = await ensureTvTimeList();
-      await fetch(`/api/lists/${tvTimeListId}/items`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tmdbId, mediaType: 'tv' }),
-      });
+      await addToTvTimeList(tmdbId);
       summary.addedToList.push(showName);
+    }
+
+    if (isFavorited) {
+      onProgress(`Favoriting "${showName}"…`);
+      await fetch(`/api/favorites/tv/${tmdbId}`, { method: 'POST', credentials: 'same-origin' });
+      summary.favorited.push(showName);
     }
   }
 
