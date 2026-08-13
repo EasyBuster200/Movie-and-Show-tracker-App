@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A TV Time–style movie/show tracker: browse trending content, save it to lists, track what you've watched (per-episode for shows), rate things, and mark favorites. Runs as a fully local, offline-first Android app (via Capacitor) with per-device "profiles" instead of server accounts — there is no backend. All movie/show metadata comes live from TMDB, called directly from the device using each profile's own TMDB API key.
 
-This branch (`mobile-local-app`) diverged from `master` at the commit that rebuilt the original server-backed multi-user website into this local-first app. `master` still has the old Express/SQLite version intact if you need to compare against it.
+This is a standalone repo, split off from [Movie-and-Show-tracker-Website](https://github.com/EasyBuster200/Movie-and-Show-tracker-Website) (a separate repo, not a branch of this one) at the commit that rebuilt the original server-backed multi-user website into this local-first app. Full history from before the split — including the original Express/SQLite server-backed version — is preserved in this repo's own git log; that other repo is the actively maintained website version if you need to compare current behavior against it.
 
 ## Commands
 
@@ -70,4 +70,4 @@ Also: `movies.js`/`shows.js`'s "Popular" rows use `discover/movie|tv?with_origin
 ## Known gaps
 
 - **No automated tests**, despite `localApi.js` re-implementing nontrivial business logic (recommendations ranking, new-episode heuristic, stats aggregation) that used to live server-side — nothing catches drift from the original behavior it's meant to mirror.
-- The old server-backed website's data (from before this branch's rebuild) is **not** on this branch and has no migration path into a local profile's IndexedDB — it's a different storage shape entirely. If you need it, check `master`.
+- The old server-backed website's data (from before this repo's rebuild) has no migration path into a local profile's IndexedDB — it's a different storage shape entirely. The server-backed version itself is preserved in this repo's git history (before the local-first rebuild commit) and is also the current state of the separate [Movie-and-Show-tracker-Website](https://github.com/EasyBuster200/Movie-and-Show-tracker-Website) repo.

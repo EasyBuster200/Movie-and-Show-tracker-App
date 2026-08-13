@@ -5,8 +5,11 @@ you've watched (per-episode for shows), rate things, and mark favorites. Ships a
 local, offline-first **Android app** — there's no server, no accounts, and no shared backend.
 Everyone who installs it keeps their own data on their own device.
 
-> This is the `mobile-local-app` branch — a from-scratch rebuild of the original server-backed
-> multi-user website (still on `master`) into a local-first Android app.
+> This is a from-scratch rebuild of the original server-backed multi-user website into a
+> local-first Android app. It was split off into its own repo from
+> [Movie-and-Show-tracker-Website](https://github.com/EasyBuster200/Movie-and-Show-tracker-Website),
+> which still has the server-backed version — this repo's git history goes back to before that
+> split if you need to compare against it.
 
 ## Features
 
@@ -96,9 +99,12 @@ public/          the entire app (HTML/CSS/JS), loaded into Capacitor's WebView
   styles/        style.css (app-wide) + login.css (profile picker)
 android/         the Capacitor-generated native wrapper (mostly boilerplate)
 docs/icons/      source Material Symbols SVGs, copy-pasted as reference for inline <svg> icons
-server/          the original Express/SQLite backend — no longer used by anything in public/,
-                 kept around for reference until it's removed
 ```
+
+The original Express/SQLite backend isn't part of this repo's working tree — it lives in this
+repo's git history (before the local-first rebuild commit) and in the current state of the
+separate [Movie-and-Show-tracker-Website](https://github.com/EasyBuster200/Movie-and-Show-tracker-Website)
+repo.
 
 See [CLAUDE.md](CLAUDE.md) for a much deeper architectural writeup (data flow, storage shape,
 the standard item contract used across pages, and known rough edges).
