@@ -15,6 +15,15 @@ async function fetchLists() {
 function renderChips(lists) {
   toolbar.innerHTML = '';
 
+  // Rendered first (not appended after every list chip) so it stays reachable near the top
+  // of the toolbar without scrolling once someone has accumulated a lot of lists.
+  const newChip = document.createElement('button');
+  newChip.type = 'button';
+  newChip.className = 'list-chip new-list-chip';
+  newChip.textContent = '+ New List';
+  newChip.addEventListener('click', () => showNewListForm());
+  toolbar.appendChild(newChip);
+
   lists.forEach(list => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -24,13 +33,6 @@ function renderChips(lists) {
     chip.addEventListener('click', () => selectList(list));
     toolbar.appendChild(chip);
   });
-
-  const newChip = document.createElement('button');
-  newChip.type = 'button';
-  newChip.className = 'list-chip new-list-chip';
-  newChip.textContent = '+ New List';
-  newChip.addEventListener('click', () => showNewListForm());
-  toolbar.appendChild(newChip);
 }
 
 function showNewListForm() {
@@ -50,7 +52,10 @@ function showNewListForm() {
 
   form.appendChild(input);
   form.appendChild(submit);
-  toolbar.appendChild(form);
+  // Inserted right after the "+ New List" chip (not appended at the end of the toolbar) so
+  // the form - and its Create button - appears where the click happened instead of below
+  // however many list chips already exist.
+  toolbar.insertBefore(form, toolbar.querySelector('.new-list-chip').nextSibling);
   input.focus();
 
   form.addEventListener('submit', async event => {

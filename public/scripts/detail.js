@@ -397,6 +397,28 @@ function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarke
   return card;
 }
 
+async function renderCollection(collectionId, currentTmdbId, context) {
+  const section = document.getElementById('collection-section');
+  const listEl = document.getElementById('collection-list');
+
+  const collection = await fetch(`/api/tmdb/collection/${collectionId}`, { credentials: 'same-origin' }).then(r => r.json());
+  const parts = (collection.parts || [])
+    .filter(part => part.id !== currentTmdbId)
+    .sort((a, b) => (a.release_date || '9999').localeCompare(b.release_date || '9999'));
+
+  if (parts.length === 0) return;
+
+  document.getElementById('collection-title').textContent = collection.name || 'Collection';
+  listEl.innerHTML = '';
+  parts.forEach(part => {
+    const item = normalizeTmdbTrendingItem({ ...part, media_type: 'movie' });
+    const card = buildCard(item);
+    attachStandardActions(card, item, context);
+    listEl.appendChild(card);
+  });
+  section.hidden = false;
+}
+
 async function renderSeasons(data, item) {
   const section = document.getElementById('seasons-section');
   section.hidden = false;
@@ -553,6 +575,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTrailer(data);
   renderCast(data);
   renderActions(item, context);
+
+  if (mediaType === 'movie' && data.belongs_to_collection) {
+    renderCollection(data.belongs_to_collection.id, data.id, context);
+  }
 
   if (mediaType === 'tv') {
     renderSeasons(data, item);

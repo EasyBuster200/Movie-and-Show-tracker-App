@@ -415,9 +415,12 @@ main {
 .new-list-form {
   display: flex;
   gap: 0.5em;
+  width: 100%;
 }
 
 .new-list-form input {
+  flex: 1;
+  min-width: 0;
   padding: 0.5em;
   border-radius: 0.5em;
   border: 1px solid var(--line-clr);
@@ -427,6 +430,7 @@ main {
 }
 
 .new-list-form button {
+  flex-shrink: 0;
   padding: 0.5em 1em;
   border-radius: 0.5em;
   border: none;
