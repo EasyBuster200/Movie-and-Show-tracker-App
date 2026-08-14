@@ -10,6 +10,19 @@
   --card-clr: #1a1d29;
   --star-clr: #f5c518;
   --danger-clr: #ff4d4f;
+
+  /* The one definition of "what a card looks like" - every card-shaped element (poster
+     cards, the Lists add-item tile) derives its size from these instead of hardcoding its
+     own numbers, so nothing can drift out of sync the way .add-item-card's fixed 377px
+     height used to (baked in for the desktop card size only, so on mobile - where real
+     cards shrink via --card-width - it stayed oversized and flex-stretched every card next
+     to it in the row to match, leaving dead space under their titles). --card-info-height
+     is the .card-info block's own height (padding + meta line + title line), which is
+     already breakpoint-independent since none of that is sized off card width.
+  */
+  --card-width: 200px;
+  --card-poster-ratio: 2 / 3;
+  --card-info-height: 77px;
 }
 
 *{
@@ -441,7 +454,9 @@ main {
 }
 
 .add-item-card {
-  height: 377px;
+  /* Matches a real .card's total height (poster + .card-info) at the current --card-width,
+     instead of a hardcoded number tuned for one breakpoint - see the --card-* comment above. */
+  height: calc(var(--card-width) * 1.5 + var(--card-info-height));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -507,6 +522,9 @@ main {
 
 .media-container {
   display: flex;
+  /* Without this, flex's default align-items:stretch makes every card in the row match the
+     height of the tallest sibling (e.g. .add-item-card) instead of its own natural size. */
+  align-items: flex-start;
   gap: 20px;
   margin-top: 15px;
   overflow-x: auto;
@@ -529,7 +547,8 @@ main {
 
 .media-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 200px);
+  grid-template-columns: repeat(auto-fill, var(--card-width));
+  align-items: start; /* same reasoning as .media-container - don't stretch row-mates */
   gap: 20px;
   margin-top: 15px;
 }
@@ -609,7 +628,7 @@ main {
 
 .card {
   flex: 0 0 auto;
-  width: 200px;
+  width: var(--card-width);
   background-color: var(--card-clr);
   border-radius: 10px;
   overflow: hidden;
@@ -627,7 +646,7 @@ main {
 
 .card img {
   width: 100%;
-  height: 300px;
+  aspect-ratio: var(--card-poster-ratio);
   object-fit: cover;
   display: block;
   transition: transform 0.2s ease;
@@ -678,6 +697,16 @@ main {
   cursor: pointer;
   display: flex;
   align-items: center;
+}
+
+.card-action-danger {
+  color: var(--danger-clr);
+  border-color: var(--danger-clr);
+}
+
+.card-action-danger:hover {
+  background-color: var(--danger-clr);
+  color: #fff;
 }
 
 .card-action.open {
@@ -1395,14 +1424,11 @@ main {
   /* Every card is this same size on mobile, in a .media-container row or a .media-grid -
      otherwise things sized against the 200px desktop card (like .save-popover below) have to
      account for two different card widths, and a fixed-size popover on a smaller card either
-     overflows the card or the viewport. */
-  .card {
-    width: 150px;
-  }
-
-  .card img {
-    height: auto;
-    aspect-ratio: 2 / 3;
+     overflows the card or the viewport. Overriding the --card-width variable itself (rather
+     than a one-off .card width rule) means every card-shaped element - real cards and
+     .add-item-card alike - shrinks together automatically. */
+  :root {
+    --card-width: 150px;
   }
 
   /* .media-grid's 200px fixed-width columns only fit one per row on a phone screen,

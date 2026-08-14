@@ -209,8 +209,59 @@ async function selectList(list) {
   itemsContainer.appendChild(buildAddItemCard(list.id, () => selectList(list)));
 }
 
+// Mirrors profile.js's openDeleteAccountConfirm shape (overlay/modal/actions built from the
+// same .confirm-* classes) but as a yes/no Promise like detail.js's showConfirmDialog, since
+// the caller here just needs to know whether to proceed - not a whole custom modal per case.
+function confirmDeleteList(listName) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'confirm-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'confirm-modal';
+
+    const text = document.createElement('p');
+    text.textContent = `Delete "${listName}"? This can't be undone.`;
+    modal.appendChild(text);
+
+    const actions = document.createElement('div');
+    actions.className = 'confirm-actions';
+
+    function close(result) {
+      overlay.remove();
+      resolve(result);
+    }
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'confirm-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => close(false));
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'confirm-btn confirm-btn-danger';
+    deleteBtn.textContent = 'Delete List';
+    deleteBtn.addEventListener('click', () => close(true));
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(deleteBtn);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) close(false);
+    });
+
+    document.body.appendChild(overlay);
+  });
+}
+
 deleteListBtn.addEventListener('click', async () => {
   if (!currentListId) return;
+  const confirmed = await confirmDeleteList(titleEl.textContent);
+  if (!confirmed) return;
+
   await fetch(`/api/lists/${currentListId}`, { method: 'DELETE', credentials: 'same-origin' });
   const lists = await fetchLists();
   if (lists.length > 0) {
