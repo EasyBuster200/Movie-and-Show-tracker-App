@@ -152,17 +152,69 @@ async function getDb() {
 
 const TMDB_MAX_RETRIES = 2;
 
+// A movie/show's core details (runtime, episode count, poster, title...) barely ever change,
+// but they were being re-fetched from TMDB on every single page load that needed them - often
+// several times over for the *same* item within one Profile load alone (e.g. /api/stats needs
+// a watched movie's runtime, /api/watched/movies/details needs that same movie's title/poster,
+// each hitting /movie/{id} separately). Caching /movie/{id} and /tv/{id} responses in IndexedDB
+// (the 'tmdb_cache' store - see localDb.js) turns every repeat lookup, across routes and across
+// page loads, into an instant local read instead of a network round trip. Deliberately NOT
+// applied to sub-resources like /tv/{id}/season/{n} (used for new-episode detection, which
+// needs to stay fresh) or one-off calls like /search or /discover.
+const TMDB_DETAIL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const TMDB_DETAIL_PATH_RE = /^\/(movie|tv)\/(\d+)$/;
+
+async function readTmdbDetailCache(cacheKey) {
+  try {
+    const db = await getDb();
+    const entry = await dbGet(db, 'tmdb_cache', cacheKey);
+    return entry && Date.now() - entry.fetchedAt < TMDB_DETAIL_CACHE_TTL_MS ? entry.data : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+// Fire-and-forget - a cache write failing (e.g. a full-ish IndexedDB) shouldn't break the
+// request that triggered it, which already has its data either way.
+function writeTmdbDetailCache(cacheKey, data) {
+  getDb()
+    .then(db => dbPut(db, 'tmdb_cache', { key: cacheKey, data, fetchedAt: Date.now() }))
+    .catch(() => {});
+}
+
+// Two routes can both want the exact same not-yet-cached path at the same moment (e.g.
+// /api/stats and /api/watched/movies/details both need a just-watched movie's /movie/{id} the
+// first time it's ever seen, before writeTmdbDetailCache has had a chance to persist it) -
+// without this, both would independently miss the cache and fire their own network request.
+// Sharing the in-flight promise instead means only the first caller actually hits the network;
+// everyone else asking for the same path while it's still pending gets the same result.
+const inFlightTmdbRequests = new Map();
+
+function fetchLocalTmdb(tmdbPath) {
+  if (inFlightTmdbRequests.has(tmdbPath)) return inFlightTmdbRequests.get(tmdbPath);
+  const promise = fetchLocalTmdbUncached(tmdbPath).finally(() => inFlightTmdbRequests.delete(tmdbPath));
+  inFlightTmdbRequests.set(tmdbPath, promise);
+  return promise;
+}
+
 // Mirrors server/tmdbClient.js's fetchTmdb — a direct TMDB call using the active profile's own
 // key instead of a server-side token. Returns null on any failure, same as the server version.
 // Retries transient failures (rate-limited, server error, timeout) a couple of times before
 // giving up - this is specifically what enriched item summaries (fetchLocalMediaSummary below)
 // fall back to a blank "Unknown" card for, so a request that would've succeeded on a second try
 // no longer permanently loses that item's poster/title/rating.
-async function fetchLocalTmdb(tmdbPath) {
+async function fetchLocalTmdbUncached(tmdbPath) {
   const profile = getActiveProfile();
   if (!profile || !profile.tmdbApiKey) return null;
 
-  return queueTmdbRequest(async () => {
+  const detailMatch = tmdbPath.match(TMDB_DETAIL_PATH_RE);
+  const cacheKey = detailMatch ? `${detailMatch[1]}:${detailMatch[2]}` : null;
+  if (cacheKey) {
+    const cached = await readTmdbDetailCache(cacheKey);
+    if (cached) return cached;
+  }
+
+  const result = await queueTmdbRequest(async () => {
     const url = `${TMDB_BASE_URL}${tmdbPath}`;
     const headers = { accept: 'application/json', Authorization: `Bearer ${profile.tmdbApiKey}` };
     for (let attempt = 0; attempt <= TMDB_MAX_RETRIES; attempt++) {
@@ -179,6 +231,9 @@ async function fetchLocalTmdb(tmdbPath) {
     }
     return null;
   });
+
+  if (cacheKey && result) writeTmdbDetailCache(cacheKey, result);
+  return result;
 }
 
 // Shared by fetchLocalMediaSummary and any route that already has the raw TMDB object for
