@@ -66,7 +66,16 @@ let actionContext = null;
 
 async function renderSection(section) {
   const container = document.getElementById(section.containerId);
-  const items = await fetch(section.url, { credentials: 'same-origin' }).then(r => r.json());
+  // Fetch one more than the preview actually shows (rather than the section's whole
+  // watched/favorites history) so items.length > WATCHED_PREVIEW_LIMIT below still correctly
+  // detects "there's more" without enriching every item the profile has ever tracked - only
+  // the ones this preview can actually display, plus the one extra needed to know to show the
+  // "view all" tile. media-list.html's "see all" page fetches the same URL without this param,
+  // since it needs the true full list.
+  const url = section.moreUrl
+    ? `${section.url}${section.url.includes('?') ? '&' : '?'}limit=${WATCHED_PREVIEW_LIMIT + 1}`
+    : section.url;
+  const items = await fetch(url, { credentials: 'same-origin' }).then(r => r.json());
 
   container.innerHTML = '';
   if (items.length === 0) {

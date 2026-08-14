@@ -368,18 +368,28 @@ route('GET', '/api/watched/movies', async () => {
   return jsonResponse(rows.map(r => r.tmdbId));
 });
 
-route('GET', '/api/watched/movies/details', async () => {
+// `limit`, if given, caps how many items get enriched with a TMDB request - profile.js's
+// preview sections only ever display WATCHED_PREVIEW_LIMIT of these, so enriching the rest
+// (someone's whole watch history, potentially hundreds of items) was pure wasted work that
+// media-list.html's "see all" page (which omits `limit`, wanting the true full list) doesn't
+// need duplicated here.
+function applyLimit(rows, searchParams) {
+  const limit = Number(searchParams.get('limit'));
+  return limit > 0 ? rows.slice(0, limit) : rows;
+}
+
+route('GET', '/api/watched/movies/details', async (params, searchParams) => {
   const db = await getDb();
   const rows = await dbGetAll(db, 'watched_movies');
   rows.sort((a, b) => b.watchedAt.localeCompare(a.watchedAt));
-  const enriched = await Promise.all(rows.map(r => fetchLocalMediaSummary(r.tmdbId, 'movie')));
+  const enriched = await Promise.all(applyLimit(rows, searchParams).map(r => fetchLocalMediaSummary(r.tmdbId, 'movie')));
   return jsonResponse(enriched);
 });
 
 route('GET', '/api/watched/shows', async (params, searchParams) => {
   const db = await getDb();
   const includeNew = searchParams.get('includeNewEpisodes') === 'true';
-  const groups = await groupWatchedShows(db);
+  const groups = applyLimit(await groupWatchedShows(db), searchParams);
 
   const enriched = await Promise.all(groups.map(async group => {
     const show = await fetchLocalTmdb(`/tv/${group.showId}`);
@@ -514,9 +524,9 @@ route('DELETE', '/api/ratings/:mediaType/:tmdbId', async ({ mediaType, tmdbId })
   return jsonResponse({});
 });
 
-async function enrichedFavorites(db, mediaType) {
+async function enrichedFavorites(db, mediaType, searchParams) {
   const rows = await dbGetAllByIndex(db, 'favorites', 'mediaType', mediaType);
-  return Promise.all(rows.map(r => fetchLocalMediaSummary(r.tmdbId, mediaType)));
+  return Promise.all(applyLimit(rows, searchParams).map(r => fetchLocalMediaSummary(r.tmdbId, mediaType)));
 }
 
 route('GET', '/api/favorites/ids', async () => {
@@ -528,8 +538,8 @@ route('GET', '/api/favorites/ids', async () => {
   });
 });
 
-route('GET', '/api/favorites/movies', async () => jsonResponse(await enrichedFavorites(await getDb(), 'movie')));
-route('GET', '/api/favorites/tv', async () => jsonResponse(await enrichedFavorites(await getDb(), 'tv')));
+route('GET', '/api/favorites/movies', async (params, searchParams) => jsonResponse(await enrichedFavorites(await getDb(), 'movie', searchParams)));
+route('GET', '/api/favorites/tv', async (params, searchParams) => jsonResponse(await enrichedFavorites(await getDb(), 'tv', searchParams)));
 
 route('POST', '/api/favorites/:mediaType/:tmdbId', async ({ mediaType, tmdbId }) => {
   if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
