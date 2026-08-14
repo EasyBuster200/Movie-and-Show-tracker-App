@@ -37,6 +37,11 @@ async function loadResultsPage() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('back-btn').addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = 'main.html';
+  });
+
   context = await fetchStandardActionContext();
 
   currentQuery = new URLSearchParams(window.location.search).get('q') || '';
