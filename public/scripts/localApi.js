@@ -31,7 +31,7 @@ function jsonErrorResponse(message, status) {
 // caps actual network concurrency without any of those call sites needing to know about each
 // other - they can still fire off as many Promise.all'd calls as they want, this just serializes
 // how many are actually in flight at once.
-const TMDB_MAX_CONCURRENT = 6;
+const TMDB_MAX_CONCURRENT = 20;
 const TMDB_TIMEOUT_MS = 10000;
 
 let tmdbActiveCount = 0;
@@ -181,11 +181,11 @@ async function fetchLocalTmdb(tmdbPath) {
   });
 }
 
-// Mirrors server/tmdbClient.js's fetchMediaSummary — same "standard item shape" contract.
-async function fetchLocalMediaSummary(tmdbId, mediaType) {
-  const fallback = { tmdbId, mediaType, title: 'Unknown', year: null, releaseDate: null, posterPath: null, voteAverage: null };
-  const data = await fetchLocalTmdb(`/${mediaType}/${tmdbId}`);
-  if (!data) return fallback;
+// Shared by fetchLocalMediaSummary and any route that already has the raw TMDB object for
+// other reasons (e.g. /api/watched/shows needs the full show for its episode count) - fetching
+// it twice, once here and once for the summary, would double the request count for no reason.
+function summaryFromTmdbData(tmdbId, mediaType, data) {
+  if (!data) return { tmdbId, mediaType, title: 'Unknown', year: null, releaseDate: null, posterPath: null, voteAverage: null };
 
   const title = data.title || data.name;
   const releaseDate = data.release_date || data.first_air_date || null;
@@ -198,6 +198,12 @@ async function fetchLocalMediaSummary(tmdbId, mediaType) {
     posterPath: data.poster_path,
     voteAverage: data.vote_average,
   };
+}
+
+// Mirrors server/tmdbClient.js's fetchMediaSummary — same "standard item shape" contract.
+async function fetchLocalMediaSummary(tmdbId, mediaType) {
+  const data = await fetchLocalTmdb(`/${mediaType}/${tmdbId}`);
+  return summaryFromTmdbData(tmdbId, mediaType, data);
 }
 
 // Mirrors server/newEpisodes.js's computeNewEpisodeSeasons exactly, minus the SQL-row shape
@@ -376,10 +382,8 @@ route('GET', '/api/watched/shows', async (params, searchParams) => {
   const groups = await groupWatchedShows(db);
 
   const enriched = await Promise.all(groups.map(async group => {
-    const [summary, show] = await Promise.all([
-      fetchLocalMediaSummary(group.showId, 'tv'),
-      fetchLocalTmdb(`/tv/${group.showId}`),
-    ]);
+    const show = await fetchLocalTmdb(`/tv/${group.showId}`);
+    const summary = summaryFromTmdbData(group.showId, 'tv', show);
     const total = show ? show.number_of_episodes : null;
     const watched = group.watchedCount;
 
@@ -448,14 +452,11 @@ route('GET', '/api/watched/shows/upcoming', async () => {
   const groups = await groupWatchedShows(db);
 
   const enriched = await Promise.all(groups.map(async group => {
-    const [summary, show] = await Promise.all([
-      fetchLocalMediaSummary(group.showId, 'tv'),
-      fetchLocalTmdb(`/tv/${group.showId}`),
-    ]);
+    const show = await fetchLocalTmdb(`/tv/${group.showId}`);
     if (!show || !show.next_episode_to_air) return null;
     const next = show.next_episode_to_air;
     return {
-      ...summary,
+      ...summaryFromTmdbData(group.showId, 'tv', show),
       nextEpisode: {
         seasonNumber: next.season_number,
         episodeNumber: next.episode_number,
