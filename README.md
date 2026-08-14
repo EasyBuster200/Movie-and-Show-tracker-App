@@ -96,7 +96,7 @@ feature's Share sheet, real back-button behavior) — those need the actual Andr
 public/          the entire app (HTML/CSS/JS), loaded into Capacitor's WebView
   scripts/       localDb.js (IndexedDB), localApi.js (fetch shim), profiles.js (local accounts),
                  backup.js, tvtime-import.js, plus one script per page
-  styles/        style.css (app-wide) + login.css (profile picker)
+  styles/        style.css (app-wide) + profile-picker.css (profile picker)
 android/         the Capacitor-generated native wrapper (mostly boilerplate)
 docs/icons/      source Material Symbols SVGs, copy-pasted as reference for inline <svg> icons
 ```

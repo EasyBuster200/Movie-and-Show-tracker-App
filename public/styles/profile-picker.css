@@ -19,29 +19,6 @@
   margin-bottom: 1.5em;
 }
 
-.auth-tabs {
-  display: flex;
-  gap: 0.5em;
-  margin-bottom: 1.5em;
-}
-
-.auth-tab {
-  flex: 1;
-  padding: 0.6em;
-  background: none;
-  border: 1px solid var(--line-clr);
-  border-radius: 0.5em;
-  color: var(--secondary-text-clr);
-  cursor: pointer;
-  font: inherit;
-}
-
-.auth-tab.active {
-  color: var(--text-clr);
-  border-color: var(--accent-clr);
-  background-color: var(--hover-clr);
-}
-
 .auth-form {
   display: flex;
   flex-direction: column;
