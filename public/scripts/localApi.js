@@ -20,6 +20,55 @@ function jsonErrorResponse(message, status) {
   });
 }
 
+// Caps how many TMDB requests are in flight across the whole app at once. Several routes below
+// (watched/favorites/lists/stats/recommendations) enrich a whole batch of items in parallel -
+// one TMDB request per item, sometimes two (a show's own details plus a season's episode list,
+// per show, for the "new episodes" check) - and some of those batches are themselves fired in
+// parallel with each other (profile.js's refreshAll loads all four Profile sections at once).
+// That adds up to dozens of simultaneous requests from a single page load, which on a phone's
+// real network is slow enough to look stuck, and/or trips TMDB's abuse-rate limiting. Routing
+// every TMDB call (both this passthrough and fetchLocalTmdb below) through one shared queue
+// caps actual network concurrency without any of those call sites needing to know about each
+// other - they can still fire off as many Promise.all'd calls as they want, this just serializes
+// how many are actually in flight at once.
+const TMDB_MAX_CONCURRENT = 6;
+const TMDB_TIMEOUT_MS = 10000;
+
+let tmdbActiveCount = 0;
+const tmdbQueue = [];
+
+function runTmdbQueue() {
+  while (tmdbActiveCount < TMDB_MAX_CONCURRENT && tmdbQueue.length > 0) {
+    const job = tmdbQueue.shift();
+    tmdbActiveCount++;
+    job().finally(() => {
+      tmdbActiveCount--;
+      runTmdbQueue();
+    });
+  }
+}
+
+function queueTmdbRequest(job) {
+  return new Promise(resolve => {
+    tmdbQueue.push(() => job().then(resolve));
+    runTmdbQueue();
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function tmdbFetchWithTimeout(url, headers) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TMDB_TIMEOUT_MS);
+  try {
+    return await originalFetch(url, { headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function handleTmdbPassthrough(pathname, search) {
   const profile = getActiveProfile();
   if (!profile || !profile.tmdbApiKey) {
@@ -29,16 +78,16 @@ async function handleTmdbPassthrough(pathname, search) {
   const tmdbPath = pathname.slice('/api/tmdb'.length);
   const url = `${TMDB_BASE_URL}${tmdbPath}${search}`;
 
-  try {
-    return await originalFetch(url, {
-      headers: {
+  return queueTmdbRequest(async () => {
+    try {
+      return await tmdbFetchWithTimeout(url, {
         accept: 'application/json',
         Authorization: `Bearer ${profile.tmdbApiKey}`,
-      },
-    });
-  } catch (error) {
-    return jsonErrorResponse('Failed to reach TMDB', 502);
-  }
+      });
+    } catch (error) {
+      return jsonErrorResponse('Failed to reach TMDB', 502);
+    }
+  });
 }
 
 // --- Local data routes (lists/watched/ratings/favorites/stats/recommendations) ---
@@ -101,20 +150,35 @@ async function getDb() {
   return dbPromise;
 }
 
+const TMDB_MAX_RETRIES = 2;
+
 // Mirrors server/tmdbClient.js's fetchTmdb — a direct TMDB call using the active profile's own
 // key instead of a server-side token. Returns null on any failure, same as the server version.
+// Retries transient failures (rate-limited, server error, timeout) a couple of times before
+// giving up - this is specifically what enriched item summaries (fetchLocalMediaSummary below)
+// fall back to a blank "Unknown" card for, so a request that would've succeeded on a second try
+// no longer permanently loses that item's poster/title/rating.
 async function fetchLocalTmdb(tmdbPath) {
   const profile = getActiveProfile();
   if (!profile || !profile.tmdbApiKey) return null;
-  try {
-    const response = await originalFetch(`${TMDB_BASE_URL}${tmdbPath}`, {
-      headers: { accept: 'application/json', Authorization: `Bearer ${profile.tmdbApiKey}` },
-    });
-    if (!response.ok) return null;
-    return response.json();
-  } catch (error) {
+
+  return queueTmdbRequest(async () => {
+    const url = `${TMDB_BASE_URL}${tmdbPath}`;
+    const headers = { accept: 'application/json', Authorization: `Bearer ${profile.tmdbApiKey}` };
+    for (let attempt = 0; attempt <= TMDB_MAX_RETRIES; attempt++) {
+      const isLastAttempt = attempt === TMDB_MAX_RETRIES;
+      try {
+        const response = await tmdbFetchWithTimeout(url, headers);
+        if (response.ok) return response.json();
+        // 429 (rate-limited) and 5xx are worth retrying; 404/401/etc are not.
+        if (isLastAttempt || (response.status !== 429 && response.status < 500)) return null;
+      } catch (error) {
+        if (isLastAttempt) return null;
+      }
+      await sleep(400 * (attempt + 1));
+    }
     return null;
-  }
+  });
 }
 
 // Mirrors server/tmdbClient.js's fetchMediaSummary — same "standard item shape" contract.
