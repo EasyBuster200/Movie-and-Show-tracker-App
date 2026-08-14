@@ -9,7 +9,6 @@
   <script type="text/javascript" src="scripts/localApi.js" defer></script>
   <script type="text/javascript" src="scripts/profiles.js" defer></script>
   <script type="text/javascript" src="scripts/auth.js" defer></script>
-  <script type="text/javascript" src="scripts/sidebar.js" defer></script>
   <script type="text/javascript" src="scripts/media.js" defer></script>
   <script type="text/javascript" src="scripts/search.js" defer></script>
   <script type="text/javascript" src="scripts/app.js" defer></script>
@@ -17,12 +16,6 @@
 <body>
   <nav id="sidebar">
     <ul>
-      <li>
-        <span class="logo">EasyBuster200</span>
-        <button onclick=toggleSidebar() id="toggle-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M440-240 200-480l240-240 56 56-183 184 183 184-56 56Zm264 0L464-480l240-240 56 56-183 184 183 184-56 56Z"/></svg>
-        </button>
-      </li>
       <li class="active"> <!--We use the active class to later highlight where the user is-->
         <a href="main.html"> <!--The href is the page it links to-->
           <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"/></svg>
@@ -60,12 +53,6 @@
         </a> 
       </li>
     </ul>
-    <div class="tmdb-attribution">
-      <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer">
-        <img src="images/tmdb-logo.svg" alt="TMDB">
-      </a>
-      <p>This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.</p>
-    </div>
   </nav>
   <main>
     <div class="search-bar">
