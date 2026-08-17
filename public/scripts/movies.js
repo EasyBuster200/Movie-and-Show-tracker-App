@@ -4,30 +4,41 @@ const selectedGenreIds = new Set();
 let currentPage = 1;
 let context = null;
 
-async function loadRow(url, containerId) {
+// `baseUrl` must not already carry a `page` param - this appends its own per page fetched.
+// `filterItem`, if given, skips raw results it returns false for (e.g. TMDB's /movie/upcoming
+// endpoint - unlike a specific region's actual theatrical release calendar - includes titles
+// whose primary release_date has already passed by the time it's fetched).
+async function loadPaginatedRow(baseUrl, containerId, { filterItem } = {}) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  try {
-    const response = await fetch(url, { credentials: 'same-origin' });
-    const data = await response.json();
-    container.innerHTML = '';
-    (data.results || []).forEach(raw => {
+  container.innerHTML = '';
+
+  const loadNextPage = attachLoadMoreRow(
+    container,
+    page => fetch(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${page}`, { credentials: 'same-origin' })
+      .then(r => r.json()),
+    raw => {
+      if (filterItem && !filterItem(raw)) return null;
       const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
       const card = buildCard(item);
       attachStandardActions(card, item, context);
-      container.appendChild(card);
-    });
-  } catch (error) {
-    console.error(`Failed to load ${containerId}:`, error);
-    container.innerHTML = '<p>Failed to load.</p>';
-  }
+      return card;
+    }
+  );
+  await loadNextPage();
+}
+
+function buildRecommendedCard(item) {
+  const card = buildCard(item);
+  attachStandardActions(card, item, context);
+  return card;
 }
 
 async function loadRecommended() {
   const container = document.getElementById('recommended-movies');
   const emptyEl = document.getElementById('recommended-empty');
   try {
-    const data = await fetch('/api/recommendations/movie', { credentials: 'same-origin' }).then(r => r.json());
+    const data = await fetch('/api/recommendations/movie?page=1', { credentials: 'same-origin' }).then(r => r.json());
     if (!data.items || data.items.length === 0) {
       container.hidden = true;
       emptyEl.hidden = false;
@@ -36,11 +47,18 @@ async function loadRecommended() {
     container.hidden = false;
     emptyEl.hidden = true;
     container.innerHTML = '';
-    data.items.forEach(item => {
-      const card = buildCard(item);
-      attachStandardActions(card, item, context);
-      container.appendChild(card);
-    });
+    data.items.forEach(item => container.appendChild(buildRecommendedCard(item)));
+
+    if (data.totalPages > 1) {
+      attachLoadMoreRow(
+        container,
+        page => fetch(`/api/recommendations/movie?page=${page}`, { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(d => ({ results: d.items, total_pages: d.totalPages })),
+        buildRecommendedCard,
+        { startPage: 2 }
+      );
+    }
   } catch (error) {
     console.error('Failed to load recommendations:', error);
     container.hidden = true;
@@ -112,8 +130,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   context = await fetchStandardActionContext();
 
   const region = getUserRegion();
-  loadRow(`/api/tmdb/discover/movie?sort_by=popularity.desc&with_origin_country=${region}&page=1&language=en-US`, 'popular-movies');
-  loadRow('/api/tmdb/movie/upcoming?language=en-US', 'upcoming-movies');
+  loadPaginatedRow(`/api/tmdb/discover/movie?sort_by=popularity.desc&with_origin_country=${region}&language=en-US`, 'popular-movies');
+  loadPaginatedRow('/api/tmdb/movie/upcoming?language=en-US', 'upcoming-movies', {
+    filterItem: raw => !raw.release_date || new Date(raw.release_date) > new Date(),
+  });
   loadRecommended();
   loadGenreToolbar();
   loadBrowsePage();

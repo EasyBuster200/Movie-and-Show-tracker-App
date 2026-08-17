@@ -675,7 +675,7 @@ route('GET', '/api/stats', async () => {
 });
 
 const SEED_COUNT = 5;
-const RESULT_CAP = 20;
+const REC_PAGE_SIZE = 20;
 
 function normalizeRecommendation(raw, mediaType) {
   const releaseDate = raw.release_date || raw.first_air_date || null;
@@ -690,8 +690,15 @@ function normalizeRecommendation(raw, mediaType) {
   };
 }
 
-route('GET', '/api/recommendations/:mediaType', async ({ mediaType }) => {
-  if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
+// Seeding + ranking is the expensive part (one TMDB /recommendations call per seed), but its
+// result only depends on watched/list state as of when the row first loaded - re-deriving it on
+// every "load more" page click would repeat the same handful of TMDB requests for a ranked pool
+// that hasn't changed. Cached in memory per mediaType for the rest of this page's session (a
+// fresh page load - including switching profiles, which always redirects/reloads - naturally
+// starts over, so this never needs explicit invalidation).
+const recommendationPoolCache = new Map();
+
+async function buildRecommendationPool(mediaType) {
   const db = await getDb();
 
   const [watchedMovies, episodeGroups, listItems] = await Promise.all([
@@ -717,7 +724,7 @@ route('GET', '/api/recommendations/:mediaType', async ({ mediaType }) => {
     .slice(0, SEED_COUNT)
     .map(([tmdbId]) => tmdbId);
 
-  if (seeds.length === 0) return jsonResponse({ seedCount: 0, items: [] });
+  if (seeds.length === 0) return { seedCount: 0, ranked: [] };
 
   const recommendationLists = await Promise.all(
     seeds.map(tmdbId => fetchLocalTmdb(`/${mediaType}/${tmdbId}/recommendations`))
@@ -741,16 +748,37 @@ route('GET', '/api/recommendations/:mediaType', async ({ mediaType }) => {
     });
   });
 
-  const ranked = [...merged.values()].sort((a, b) => {
-    if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
-    const aScore = a.raw.popularity ?? a.raw.vote_count ?? 0;
-    const bScore = b.raw.popularity ?? b.raw.vote_count ?? 0;
-    return bScore - aScore;
-  });
+  const ranked = [...merged.values()]
+    .sort((a, b) => {
+      if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount;
+      const aScore = a.raw.popularity ?? a.raw.vote_count ?? 0;
+      const bScore = b.raw.popularity ?? b.raw.vote_count ?? 0;
+      return bScore - aScore;
+    })
+    .map(({ raw }) => raw);
 
-  const items = ranked.slice(0, RESULT_CAP).map(({ raw }) => normalizeRecommendation(raw, mediaType));
+  return { seedCount: seeds.length, ranked };
+}
 
-  return jsonResponse({ seedCount: seeds.length, items });
+route('GET', '/api/recommendations/:mediaType', async ({ mediaType }, searchParams) => {
+  if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+
+  let pool = recommendationPoolCache.get(mediaType);
+  if (!pool) {
+    pool = await buildRecommendationPool(mediaType);
+    recommendationPoolCache.set(mediaType, pool);
+  }
+
+  const { seedCount, ranked } = pool;
+  if (seedCount === 0) return jsonResponse({ seedCount: 0, items: [], page: 1, totalPages: 1 });
+
+  const totalPages = Math.max(1, Math.ceil(ranked.length / REC_PAGE_SIZE));
+  const items = ranked
+    .slice((page - 1) * REC_PAGE_SIZE, page * REC_PAGE_SIZE)
+    .map(raw => normalizeRecommendation(raw, mediaType));
+
+  return jsonResponse({ seedCount, items, page, totalPages });
 });
 
 function getRequestBody(init) {

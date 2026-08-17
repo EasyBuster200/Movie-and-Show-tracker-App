@@ -3,53 +3,26 @@ const MOVIE_API_URL = '/api/tmdb/trending/movie/day?language=en-US';
 const TV_API_URL = '/api/tmdb/trending/tv/day?language=en-US';
 
 async function fetchTrending(context) {
-  const options = {
-    method: "GET",
-    headers: {
-      accept: "application/json"
-    }
-  };
+  await loadTrendingRow(MOVIE_API_URL, 'trending-movies');
+  await loadTrendingRow(TV_API_URL, 'trending-shows');
 
-  try {
-    const response = await fetch(MOVIE_API_URL, options);
-    const data = await response.json();
-    displayMedia(data.results, "trending-movies", context, "movies.html", "movies");
-  } catch (error) {
-    console.error("Error fetching movies:", error);
-    document.getElementById('trending-movies').innerHTML = `<p>Failed to load trending movies.</p>`;
-  }
+  async function loadTrendingRow(baseUrl, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
 
-  try {
-    const response = await fetch(TV_API_URL, options);
-    const data = await response.json();
-    displayMedia(data.results, "trending-shows", context, "shows.html", "shows");
-  } catch (error) {
-    console.error("Error fetching shows:", error);
-    document.getElementById('trending-shows').innerHTML = `<p>Failed to load trending shows.</p>`;
-  }
-}
-
-function displayMedia(mediaList, containerId, context, moreUrl, moreLabel) {
-  const container = document.getElementById(containerId);
-
-  if(!container) return;
-
-  container.innerHTML = "";
-
-  mediaList.forEach(raw => {
-    if(raw.media_type === "person") return;
-
-    const item = normalizeTmdbTrendingItem(raw);
-    const card = buildCard(item);
-    attachStandardActions(card, item, context);
-    container.appendChild(card);
-  });
-
-  if (moreUrl) {
-    const moreCard = document.createElement("div");
-    moreCard.className = "more-card";
-    moreCard.innerHTML = `<a href="${moreUrl}" class="more-btn" aria-label="View more ${moreLabel}"><span aria-hidden="true">+</span></a>`;
-    container.appendChild(moreCard);
+    const loadNextPage = attachLoadMoreRow(
+      container,
+      page => fetch(`${baseUrl}&page=${page}`, { headers: { accept: 'application/json' } }).then(r => r.json()),
+      raw => {
+        if (raw.media_type === 'person') return null;
+        const item = normalizeTmdbTrendingItem(raw);
+        const card = buildCard(item);
+        attachStandardActions(card, item, context);
+        return card;
+      }
+    );
+    await loadNextPage();
   }
 }
 

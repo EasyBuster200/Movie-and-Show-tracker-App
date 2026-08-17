@@ -1,4 +1,5 @@
 const MEDIA_TYPE = 'tv';
+const KEEP_WATCHING_PREVIEW_LIMIT = 20;
 
 const selectedGenreIds = new Set();
 let currentPage = 1;
@@ -12,23 +13,24 @@ async function fetchWatchedShowIds() {
   return new Set(shows.map(s => s.tmdbId));
 }
 
-async function loadRow(url, containerId) {
+// `baseUrl` must not already carry a `page` param - this appends its own per page fetched.
+async function loadPaginatedRow(baseUrl, containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
-  try {
-    const response = await fetch(url, { credentials: 'same-origin' });
-    const data = await response.json();
-    container.innerHTML = '';
-    (data.results || []).forEach(raw => {
+  container.innerHTML = '';
+
+  const loadNextPage = attachLoadMoreRow(
+    container,
+    page => fetch(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${page}`, { credentials: 'same-origin' })
+      .then(r => r.json()),
+    raw => {
       const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
       const card = buildCard(item);
       attachStandardActions(card, item, context);
-      container.appendChild(card);
-    });
-  } catch (error) {
-    console.error(`Failed to load ${containerId}:`, error);
-    container.innerHTML = '<p>Failed to load.</p>';
-  }
+      return card;
+    }
+  );
+  await loadNextPage();
 }
 
 async function loadKeepWatching() {
@@ -55,7 +57,7 @@ async function loadKeepWatching() {
     emptyEl.hidden = true;
     container.innerHTML = '';
 
-    inProgress.forEach(item => {
+    inProgress.slice(0, KEEP_WATCHING_PREVIEW_LIMIT).forEach(item => {
       const card = buildCard(item);
 
       const progress = document.createElement('p');
@@ -73,6 +75,13 @@ async function loadKeepWatching() {
       attachStandardActions(card, item, context);
       container.appendChild(card);
     });
+
+    if (inProgress.length > KEEP_WATCHING_PREVIEW_LIMIT) {
+      const moreCard = document.createElement('div');
+      moreCard.className = 'more-card';
+      moreCard.innerHTML = `<a href="media-list.html?source=in-progress&type=tv" class="more-btn" aria-label="View all in-progress shows">${moreBtnContentHtml('View All')}</a>`;
+      container.appendChild(moreCard);
+    }
   } catch (error) {
     console.error('Failed to load keep watching:', error);
     container.hidden = true;
@@ -80,11 +89,17 @@ async function loadKeepWatching() {
   }
 }
 
+function buildRecommendedCard(item) {
+  const card = buildCard(item);
+  attachStandardActions(card, item, context);
+  return card;
+}
+
 async function loadRecommended() {
   const container = document.getElementById('recommended-shows');
   const emptyEl = document.getElementById('recommended-empty');
   try {
-    const data = await fetch('/api/recommendations/tv', { credentials: 'same-origin' }).then(r => r.json());
+    const data = await fetch('/api/recommendations/tv?page=1', { credentials: 'same-origin' }).then(r => r.json());
     if (!data.items || data.items.length === 0) {
       container.hidden = true;
       emptyEl.hidden = false;
@@ -93,11 +108,18 @@ async function loadRecommended() {
     container.hidden = false;
     emptyEl.hidden = true;
     container.innerHTML = '';
-    data.items.forEach(item => {
-      const card = buildCard(item);
-      attachStandardActions(card, item, context);
-      container.appendChild(card);
-    });
+    data.items.forEach(item => container.appendChild(buildRecommendedCard(item)));
+
+    if (data.totalPages > 1) {
+      attachLoadMoreRow(
+        container,
+        page => fetch(`/api/recommendations/tv?page=${page}`, { credentials: 'same-origin' })
+          .then(r => r.json())
+          .then(d => ({ results: d.items, total_pages: d.totalPages })),
+        buildRecommendedCard,
+        { startPage: 2 }
+      );
+    }
   } catch (error) {
     console.error('Failed to load recommendations:', error);
     container.hidden = true;
@@ -170,7 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   watchedShowIds = await fetchWatchedShowIds();
 
   const region = getUserRegion();
-  loadRow(`/api/tmdb/discover/tv?sort_by=popularity.desc&with_origin_country=${region}&page=1&language=en-US`, 'popular-shows');
+  loadPaginatedRow(`/api/tmdb/discover/tv?sort_by=popularity.desc&with_origin_country=${region}&language=en-US`, 'popular-shows');
   loadKeepWatching();
   loadRecommended();
   loadGenreToolbar();

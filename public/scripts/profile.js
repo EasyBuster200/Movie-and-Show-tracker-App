@@ -102,7 +102,7 @@ async function renderSection(section) {
   if (section.moreUrl && items.length > WATCHED_PREVIEW_LIMIT) {
     const moreCard = document.createElement('div');
     moreCard.className = 'more-card';
-    moreCard.innerHTML = `<a href="${section.moreUrl}" class="more-btn" aria-label="View all"><span aria-hidden="true">+</span></a>`;
+    moreCard.innerHTML = `<a href="${section.moreUrl}" class="more-btn" aria-label="View all">${moreBtnContentHtml('View All')}</a>`;
     container.appendChild(moreCard);
   }
 }

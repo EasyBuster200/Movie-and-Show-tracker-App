@@ -78,6 +78,86 @@ function renderPagination(container, currentPage, totalPages, onPageChange) {
   container.appendChild(pageButton('Next', currentPage + 1, { disabled: currentPage >= totalPages }));
 }
 
+// Appends a trailing "+" tile to a horizontally-scrolling row (a `.media-container`) that,
+// when clicked, fetches and appends the next page of the same paginated TMDB feed - removing
+// itself once the feed runs out of pages. `fetchPage(page)` must resolve to a TMDB-shaped
+// { results, page, total_pages } object. `renderItem(raw)` builds and returns the card for one
+// result, or returns a falsy value to skip it (e.g. filtering out "person" entries). Returns a
+// `loadNextPage` function the caller uses to kick off the first page itself, so the caller
+// still controls what an empty/failed first load looks like.
+// Shared by attachLoadMoreRow below and profile.js/shows.js's plain "View all" links - same
+// card-sized tile, same icon+label content, whether it loads more inline or navigates away.
+function moreBtnContentHtml(label) {
+  return `
+    <span class="more-btn-icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
+    </span>
+    <span class="more-btn-label">${label}</span>
+  `;
+}
+
+function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } = {}) {
+  let page = startPage;
+  let loading = false;
+
+  const moreCard = document.createElement('div');
+  moreCard.className = 'more-card';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'more-btn';
+  button.setAttribute('aria-label', 'Load more');
+  button.innerHTML = moreBtnContentHtml('Load More');
+  moreCard.appendChild(button);
+  container.appendChild(moreCard);
+
+  // A `renderItem` that filters (returns falsy for some raw results - e.g. movies.js's
+  // Coming Soon row skipping already-released titles) can hit a page where only a handful, or
+  // even zero, of a page's ~20 raw results survive. Stopping as soon as *anything* got added
+  // would still leave a filtered row looking sparse (2-3 cards) compared to a normal unfiltered
+  // row's full page - so a single call here keeps pulling subsequent pages on its own until it's
+  // accumulated a full page's worth, up to MAX_PAGES_PER_LOAD, instead of stopping at the first
+  // non-empty one. Rows with no filtering (the common case) always fill this on the first page,
+  // so this loop never runs more than once for them.
+  const TARGET_ITEMS_PER_LOAD = 20;
+  const MAX_PAGES_PER_LOAD = 10;
+
+  async function loadNextPage() {
+    if (loading) return;
+    loading = true;
+    button.disabled = true;
+    try {
+      let added = 0;
+      for (let attempts = 0; attempts < MAX_PAGES_PER_LOAD && added < TARGET_ITEMS_PER_LOAD; attempts++) {
+        const data = await fetchPage(page);
+        (data.results || []).forEach(raw => {
+          const card = renderItem(raw);
+          if (card) {
+            container.insertBefore(card, moreCard);
+            added += 1;
+          }
+        });
+        const totalPages = data.total_pages || page;
+        if (page >= totalPages) {
+          moreCard.remove();
+          break;
+        }
+        page += 1;
+      }
+    } catch (error) {
+      console.error('Failed to load more:', error);
+      if (!container.querySelector('.card')) {
+        container.innerHTML = '<p>Failed to load.</p>';
+      }
+    } finally {
+      loading = false;
+      button.disabled = false;
+    }
+  }
+
+  button.addEventListener('click', loadNextPage);
+  return loadNextPage;
+}
+
 function detailUrl(item) {
   return `detail.html?type=${item.mediaType}&id=${item.tmdbId}`;
 }
