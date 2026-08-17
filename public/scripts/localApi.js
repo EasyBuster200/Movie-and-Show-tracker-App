@@ -69,6 +69,24 @@ async function tmdbFetchWithTimeout(url, headers) {
   }
 }
 
+// TMDB's `adult` flag (on movie/tv objects specifically) marks actual pornographic content,
+// not just mature-rated mainstream movies/shows (an R-rated horror film is never adult:true) -
+// so filtering on it removes the former without touching the latter. Only ever applied to the
+// two known media-listing shapes (a top-level `results` array - search/discover/trending/
+// upcoming/recommendations - or a collection's `parts` array), never to unrelated arrays like
+// `credits.cast`/`credits.crew` on a detail response, where a person object's own `adult` field
+// means something entirely different (their known-for work, not this request's content) and
+// stripping them would incorrectly drop legitimate cast/crew credits.
+function stripAdultItems(data) {
+  if (data && Array.isArray(data.results)) {
+    data.results = data.results.filter(item => !(item && item.adult));
+  }
+  if (data && Array.isArray(data.parts)) {
+    data.parts = data.parts.filter(item => !(item && item.adult));
+  }
+  return data;
+}
+
 async function handleTmdbPassthrough(pathname, search) {
   const profile = getActiveProfile();
   if (!profile || !profile.tmdbApiKey) {
@@ -80,10 +98,12 @@ async function handleTmdbPassthrough(pathname, search) {
 
   return queueTmdbRequest(async () => {
     try {
-      return await tmdbFetchWithTimeout(url, {
+      const response = await tmdbFetchWithTimeout(url, {
         accept: 'application/json',
         Authorization: `Bearer ${profile.tmdbApiKey}`,
       });
+      if (!response.ok) return response;
+      return jsonResponse(stripAdultItems(await response.json()), response.status);
     } catch (error) {
       return jsonErrorResponse('Failed to reach TMDB', 502);
     }
@@ -221,7 +241,7 @@ async function fetchLocalTmdbUncached(tmdbPath) {
       const isLastAttempt = attempt === TMDB_MAX_RETRIES;
       try {
         const response = await tmdbFetchWithTimeout(url, headers);
-        if (response.ok) return response.json();
+        if (response.ok) return stripAdultItems(await response.json());
         // 429 (rate-limited) and 5xx are worth retrying; 404/401/etc are not.
         if (isLastAttempt || (response.status !== 429 && response.status < 500)) return null;
       } catch (error) {
