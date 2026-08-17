@@ -498,14 +498,23 @@ async function renderSeasons(data, item) {
     const block = document.createElement('div');
     block.className = 'season-block';
 
+    const isComingSoon = season.episode_count === 0;
+
     const header = document.createElement('button');
     header.type = 'button';
     header.className = 'season-header';
+    if (isComingSoon) {
+      header.disabled = true;
+      header.title = 'No episodes released yet';
+    }
 
+    // The episode count used to be spelled out here too ("Season 1 — 10 episodes"), but
+    // season-header-progress right next to it already says "3/10 watched" - same total,
+    // redundant with the overall "3/10 episodes watched" line above the whole accordion.
+    // Coming Soon seasons have no watched/total progress badge, so that label still earns
+    // its keep here.
     const headerLabel = document.createElement('span');
-    headerLabel.textContent = season.episode_count > 0
-      ? `${season.name} — ${season.episode_count} episodes`
-      : `${season.name} — Coming Soon`;
+    headerLabel.textContent = isComingSoon ? `${season.name} — Coming Soon` : season.name;
     if (newSeasonSet.has(season.season_number)) {
       const newLabel = document.createElement('span');
       newLabel.className = 'new-label';
