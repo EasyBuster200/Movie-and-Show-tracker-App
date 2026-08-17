@@ -26,6 +26,8 @@ Everyone who installs it keeps their own data on their own device.
   upcoming air dates for anything you're tracking.
 - **Recommendations** — seeded from your own most-recently-watched/listed items, ranked against
   TMDB's recommendation graph.
+- **Adult-content filtering** — pornographic titles (TMDB's own `adult` flag, not general
+  R-rated/mature content) are filtered out of search, browsing, and recommendations everywhere.
 - **Local profiles** — swap between multiple people's data on the same device (a phone might be
   shared), each with their own TMDB API key and completely separate storage.
 - **Backup & restore** — export a profile's full data as a file and re-import it on a new phone,
