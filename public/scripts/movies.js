@@ -37,6 +37,9 @@ function buildRecommendedCard(item) {
 async function loadRecommended() {
   const container = document.getElementById('recommended-movies');
   const emptyEl = document.getElementById('recommended-empty');
+  container.hidden = false;
+  emptyEl.hidden = true;
+  renderSkeletonRow(container);
   try {
     const data = await fetch('/api/recommendations/movie?page=1', { credentials: 'same-origin' }).then(r => r.json());
     if (!data.items || data.items.length === 0) {
@@ -104,6 +107,9 @@ async function loadBrowsePage() {
   if (selectedGenreIds.size > 0) {
     params.set('with_genres', [...selectedGenreIds].join(','));
   }
+
+  grid.innerHTML = '';
+  renderSkeletonRow(grid);
 
   try {
     const data = await fetch(`/api/tmdb/discover/movie?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());

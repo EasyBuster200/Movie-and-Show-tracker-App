@@ -99,6 +99,10 @@ function moreBtnContentHtml(label) {
 function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } = {}) {
   let page = startPage;
   let loading = false;
+  // Only the very first load gets skeleton placeholders - by the time the user clicks
+  // "Load More" themselves, the row already has real cards on screen, so there's nothing
+  // empty to mask.
+  let firstLoad = true;
 
   const moreCard = document.createElement('div');
   moreCard.className = 'more-card';
@@ -125,6 +129,15 @@ function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } =
     if (loading) return;
     loading = true;
     button.disabled = true;
+
+    const skeletons = firstLoad
+      ? Array.from({ length: SKELETON_ROW_COUNT }, () => {
+          const skeleton = buildSkeletonCard();
+          container.insertBefore(skeleton, moreCard);
+          return skeleton;
+        })
+      : [];
+
     try {
       let added = 0;
       for (let attempts = 0; attempts < MAX_PAGES_PER_LOAD && added < TARGET_ITEMS_PER_LOAD; attempts++) {
@@ -132,7 +145,12 @@ function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } =
         (data.results || []).forEach(raw => {
           const card = renderItem(raw);
           if (card) {
-            container.insertBefore(card, moreCard);
+            // Swap a still-pending skeleton for the real card in place, so cards don't jump
+            // around mid-row as results trickle in - only overflow to appending once every
+            // skeleton has been claimed.
+            const skeleton = skeletons.shift();
+            if (skeleton) container.replaceChild(card, skeleton);
+            else container.insertBefore(card, moreCard);
             added += 1;
           }
         });
@@ -145,17 +163,60 @@ function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } =
       }
     } catch (error) {
       console.error('Failed to load more:', error);
-      if (!container.querySelector('.card')) {
+      if (!container.querySelector('.card:not(.skeleton)')) {
         container.innerHTML = '<p>Failed to load.</p>';
       }
     } finally {
+      skeletons.forEach(skeleton => skeleton.remove());
       loading = false;
       button.disabled = false;
+      firstLoad = false;
     }
   }
 
   button.addEventListener('click', loadNextPage);
   return loadNextPage;
+}
+
+const SKELETON_ROW_COUNT = 8;
+
+// A placeholder shaped exactly like a real .card (same .card-poster/.card-info structure, so
+// it takes up the same layout space and can't cause a reflow when swapped for the real thing)
+// with shimmering blocks instead of real content, and no click handler since there's nothing to
+// open yet. Used everywhere a row/grid is about to wait on a network fetch, so the row's shape
+// appears immediately instead of the space looking empty/broken until data arrives.
+function buildSkeletonCard() {
+  const card = document.createElement('div');
+  card.className = 'card skeleton';
+
+  const posterWrap = document.createElement('div');
+  posterWrap.className = 'card-poster skeleton-shimmer';
+  card.appendChild(posterWrap);
+
+  const info = document.createElement('div');
+  info.className = 'card-info';
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta skeleton-line skeleton-shimmer';
+  info.appendChild(meta);
+
+  const title = document.createElement('h3');
+  title.className = 'card-title skeleton-line skeleton-shimmer';
+  info.appendChild(title);
+
+  card.appendChild(info);
+  return card;
+}
+
+// Fills `container` with placeholder cards ahead of a fetch that's about to replace its
+// contents wholesale (the common case: the caller already does `container.innerHTML = ''` once
+// real data arrives, which clears these back out). Not used by attachLoadMoreRow's own first
+// load below, which replaces skeletons in place one at a time as results arrive instead, so
+// cards don't jump around mid-row.
+function renderSkeletonRow(container, count = SKELETON_ROW_COUNT) {
+  for (let i = 0; i < count; i++) {
+    container.appendChild(buildSkeletonCard());
+  }
 }
 
 function detailUrl(item) {
@@ -423,7 +484,15 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
       await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
       watchedMovieIds.delete(item.tmdbId);
     } else {
-      await fetch(url, { method: 'POST', credentials: 'same-origin' });
+      // Sends the display fields the caller already has in hand (title/poster/etc) so
+      // localApi.js can store them alongside the id - the Profile page's watched-movies
+      // preview can then render straight from IndexedDB instead of re-fetching TMDB per item.
+      await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemSummaryFields(item)),
+      });
       watchedMovieIds.add(item.tmdbId);
     }
     syncVisual();
@@ -435,6 +504,18 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
 
 function favoriteKey(item) {
   return `${item.mediaType}:${item.tmdbId}`;
+}
+
+// The subset of the standard item shape worth denormalizing onto a watched/favorite row at
+// write time, so reading it back later never needs a TMDB round trip for these fields again.
+function itemSummaryFields(item) {
+  return {
+    title: item.title,
+    year: item.year,
+    releaseDate: item.releaseDate,
+    posterPath: item.posterPath,
+    voteAverage: item.voteAverage,
+  };
 }
 
 // Fetches the current user's watched-movie ids and favorite ids once per page,
@@ -487,7 +568,12 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
       await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
       favoriteIds.delete(key);
     } else {
-      await fetch(url, { method: 'POST', credentials: 'same-origin' });
+      await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(itemSummaryFields(item)),
+      });
       favoriteIds.add(key);
     }
     syncVisual();

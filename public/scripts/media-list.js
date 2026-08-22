@@ -28,6 +28,11 @@ async function loadMediaList(source, type, context) {
   const emptyEl = document.getElementById('media-list-empty');
   const { sourceLabel, typeLabel } = getListLabels(source, type);
 
+  grid.hidden = false;
+  emptyEl.hidden = true;
+  grid.innerHTML = '';
+  renderSkeletonRow(grid);
+
   const url = ENDPOINTS[`${source}:${type}`];
   let items = await fetch(url, { credentials: 'same-origin' }).then(r => r.json());
   if (source === 'in-progress') {

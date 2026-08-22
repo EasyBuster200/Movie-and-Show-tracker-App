@@ -14,9 +14,14 @@ function renderHeader(user) {
 }
 
 function formatWatchTime(totalMinutes) {
-  const hours = Math.floor(totalMinutes / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return `${days}D ${hours}h`;
+  }
   const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes}m`;
+  return `${totalHours}h ${minutes}m`;
 }
 
 async function loadStats() {
@@ -51,7 +56,13 @@ async function loadStats() {
   });
 }
 
-const WATCHED_PREVIEW_LIMIT = 20;
+// The Watched Shows section always costs its own TMDB round trip per visible show (it needs
+// live episode-count/progress data, unlike the other three sections' denormalized rows - see
+// localApi.js's summaryFromRowOrFetch) - unlike the TMDB-list-backed rows elsewhere in the app,
+// which get up to 20 full items in one request. Kept low across all four sections for a
+// consistent preview size, so Watched Shows in particular doesn't block first paint on 20
+// individual lookups.
+const WATCHED_PREVIEW_LIMIT = 8;
 
 const MEDIA_SECTIONS = [
   { url: '/api/watched/movies/details', containerId: 'watched-movies-container', empty: 'No watched movies yet.', moreUrl: 'media-list.html?source=watched&type=movie' },
@@ -66,15 +77,23 @@ let actionContext = null;
 
 async function renderSection(section) {
   const container = document.getElementById(section.containerId);
-  // Fetch one more than the preview actually shows (rather than the section's whole
-  // watched/favorites history) so items.length > WATCHED_PREVIEW_LIMIT below still correctly
-  // detects "there's more" without enriching every item the profile has ever tracked - only
-  // the ones this preview can actually display, plus the one extra needed to know to show the
-  // "view all" tile. media-list.html's "see all" page fetches the same URL without this param,
-  // since it needs the true full list.
+  // Cap what gets enriched (rather than the section's whole watched/favorites history) -
+  // the preview only ever shows WATCHED_PREVIEW_LIMIT items, with a "view all" tile always
+  // linking to the full list. media-list.html's "see all" page fetches the same URL without
+  // this param, since it needs the true full list.
   const url = section.moreUrl
-    ? `${section.url}${section.url.includes('?') ? '&' : '?'}limit=${WATCHED_PREVIEW_LIMIT + 1}`
+    ? `${section.url}${section.url.includes('?') ? '&' : '?'}limit=${WATCHED_PREVIEW_LIMIT}`
     : section.url;
+
+  // Watched Movies/Favorite Movies/Favorite Shows read denormalized fields straight out of
+  // IndexedDB now (see localApi.js's summaryFromRowOrFetch) and resolve near-instantly, so a
+  // skeleton would just flash. Watched Shows (showProgress) still needs a live per-show TMDB
+  // lookup for its episode-count/progress data, so it's the one section that still benefits.
+  if (section.showProgress) {
+    container.innerHTML = '';
+    renderSkeletonRow(container, WATCHED_PREVIEW_LIMIT);
+  }
+
   const items = await fetch(url, { credentials: 'same-origin' }).then(r => r.json());
 
   container.innerHTML = '';
@@ -83,9 +102,7 @@ async function renderSection(section) {
     return;
   }
 
-  const preview = section.moreUrl ? items.slice(0, WATCHED_PREVIEW_LIMIT) : items;
-
-  preview.forEach(item => {
+  items.forEach(item => {
     const card = buildCard(item);
 
     if (section.showProgress && item.total != null) {
@@ -99,7 +116,7 @@ async function renderSection(section) {
     container.appendChild(card);
   });
 
-  if (section.moreUrl && items.length > WATCHED_PREVIEW_LIMIT) {
+  if (section.moreUrl) {
     const moreCard = document.createElement('div');
     moreCard.className = 'more-card';
     moreCard.innerHTML = `<a href="${section.moreUrl}" class="more-btn" aria-label="View all">${moreBtnContentHtml('View All')}</a>`;

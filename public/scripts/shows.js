@@ -1,5 +1,10 @@
 const MEDIA_TYPE = 'tv';
-const KEEP_WATCHING_PREVIEW_LIMIT = 20;
+// Matches profile.js's WATCHED_PREVIEW_LIMIT - each visible card here needs a live per-show
+// TMDB lookup, so a smaller preview means less enrichment work blocking first paint. Note this
+// only caps what's *rendered*: the /api/watched/shows?includeNewEpisodes=true fetch below still
+// enriches every tracked show regardless of this constant, since it has to check each one's
+// progress/new-episode status before it can even know which ones qualify as "in progress".
+const KEEP_WATCHING_PREVIEW_LIMIT = 8;
 
 const selectedGenreIds = new Set();
 let currentPage = 1;
@@ -36,6 +41,9 @@ async function loadPaginatedRow(baseUrl, containerId) {
 async function loadKeepWatching() {
   const container = document.getElementById('keep-watching');
   const emptyEl = document.getElementById('keep-watching-empty');
+  container.hidden = false;
+  emptyEl.hidden = true;
+  renderSkeletonRow(container);
   try {
     const response = await fetch('/api/watched/shows?includeNewEpisodes=true', { credentials: 'same-origin' });
     if (!response.ok) {
@@ -98,6 +106,9 @@ function buildRecommendedCard(item) {
 async function loadRecommended() {
   const container = document.getElementById('recommended-shows');
   const emptyEl = document.getElementById('recommended-empty');
+  container.hidden = false;
+  emptyEl.hidden = true;
+  renderSkeletonRow(container);
   try {
     const data = await fetch('/api/recommendations/tv?page=1', { credentials: 'same-origin' }).then(r => r.json());
     if (!data.items || data.items.length === 0) {
@@ -165,6 +176,9 @@ async function loadBrowsePage() {
   if (selectedGenreIds.size > 0) {
     params.set('with_genres', [...selectedGenreIds].join(','));
   }
+
+  grid.innerHTML = '';
+  renderSkeletonRow(grid);
 
   try {
     const data = await fetch(`/api/tmdb/discover/tv?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());

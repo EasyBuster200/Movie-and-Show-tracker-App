@@ -657,6 +657,53 @@ main {
   text-overflow: ellipsis;
 }
 
+/* A skeleton card reuses .card/.card-poster/.card-info/.card-meta/.card-title (see
+   buildSkeletonCard in media.js) so it's sized identically to a real card with zero extra
+   layout rules - only .skeleton/.skeleton-line/.skeleton-shimmer below override how those
+   elements look while there's no real content yet. */
+.card.skeleton {
+  cursor: default;
+}
+
+.card.skeleton .card-poster {
+  aspect-ratio: var(--card-poster-ratio);
+}
+
+.skeleton-line {
+  height: 0.85em;
+  border-radius: 4px;
+}
+
+.card-meta.skeleton-line {
+  width: 45%;
+}
+
+.card-title.skeleton-line {
+  width: 80%;
+  height: 1em;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--hover-clr);
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: skeleton-shimmer-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .card-actions {
   display: flex;
   gap: 0.5em;

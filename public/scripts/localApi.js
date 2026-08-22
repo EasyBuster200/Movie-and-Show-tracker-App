@@ -281,6 +281,45 @@ async function fetchLocalMediaSummary(tmdbId, mediaType) {
   return summaryFromTmdbData(tmdbId, mediaType, data);
 }
 
+// The subset of the standard item shape worth denormalizing onto a watched_movies/favorites
+// row, so reading it back later never needs a TMDB round trip for these fields again. Only
+// includes keys actually present on `source`, so a caller with no display data handy (e.g. a
+// POST body-less request) doesn't stamp explicit `undefined`s onto the row.
+function summaryFieldsOnly(source) {
+  const fields = {};
+  ['title', 'year', 'releaseDate', 'posterPath', 'voteAverage'].forEach(key => {
+    if (source[key] !== undefined) fields[key] = source[key];
+  });
+  return fields;
+}
+
+// Reads a watched_movies/favorites row's own denormalized display fields if it has them
+// (the common case now - see summaryFieldsOnly above), with no TMDB call at all. Rows written
+// before this existed, or by tvtime-import.js's bulk import (no TMDB summary data handy at
+// that point), fall back to a live fetch and get backfilled so every later read is instant
+// too. A failed fetch's "Unknown" placeholder is deliberately NOT persisted, so it stays
+// retryable next time instead of getting stuck that way permanently.
+async function summaryFromRowOrFetch(db, storeName, row, mediaType) {
+  if (row.title !== undefined) {
+    return {
+      tmdbId: row.tmdbId,
+      mediaType,
+      title: row.title,
+      year: row.year,
+      releaseDate: row.releaseDate,
+      posterPath: row.posterPath,
+      voteAverage: row.voteAverage,
+    };
+  }
+
+  const data = await fetchLocalTmdb(`/${mediaType}/${row.tmdbId}`);
+  const summary = summaryFromTmdbData(row.tmdbId, mediaType, data);
+  if (data) {
+    await dbPut(db, storeName, { ...row, ...summaryFieldsOnly(summary) });
+  }
+  return summary;
+}
+
 // Mirrors server/newEpisodes.js's computeNewEpisodeSeasons exactly, minus the SQL-row shape
 // (watchedRows here are {seasonNumber, episodeNumber} objects, not season_number/episode_number).
 async function computeNewEpisodeSeasons({ tmdbId, watchedRows, lastWatchedAt, show }) {
@@ -424,9 +463,19 @@ route('DELETE', '/api/lists/:listId/items/:tmdbId/:mediaType', async ({ listId, 
   return jsonResponse({});
 });
 
-route('POST', '/api/watched/movies/:tmdbId', async ({ tmdbId }) => {
+route('POST', '/api/watched/movies/:tmdbId', async ({ tmdbId }, searchParams, getBody) => {
   const db = await getDb();
-  await dbPut(db, 'watched_movies', { tmdbId: Number(tmdbId), watchedAt: new Date().toISOString() });
+  // The client already has the standard item shape in hand when this fires (it's the card
+  // being clicked) - storing its display fields here means the Watched Movies preview on the
+  // Profile page can render straight from IndexedDB later, no TMDB round trip per item. Body
+  // is optional (e.g. tvtime-import.js's bulk import doesn't have it handy); summaryFromRowOrFetch
+  // below fills it in lazily for rows that arrive without it.
+  const body = (await getBody()) || {};
+  await dbPut(db, 'watched_movies', {
+    tmdbId: Number(tmdbId),
+    watchedAt: new Date().toISOString(),
+    ...summaryFieldsOnly(body),
+  });
   return jsonResponse({});
 });
 
@@ -457,7 +506,9 @@ route('GET', '/api/watched/movies/details', async (params, searchParams) => {
   const db = await getDb();
   const rows = await dbGetAll(db, 'watched_movies');
   rows.sort((a, b) => b.watchedAt.localeCompare(a.watchedAt));
-  const enriched = await Promise.all(applyLimit(rows, searchParams).map(r => fetchLocalMediaSummary(r.tmdbId, 'movie')));
+  const enriched = await Promise.all(
+    applyLimit(rows, searchParams).map(r => summaryFromRowOrFetch(db, 'watched_movies', r, 'movie'))
+  );
   return jsonResponse(enriched);
 });
 
@@ -601,7 +652,9 @@ route('DELETE', '/api/ratings/:mediaType/:tmdbId', async ({ mediaType, tmdbId })
 
 async function enrichedFavorites(db, mediaType, searchParams) {
   const rows = await dbGetAllByIndex(db, 'favorites', 'mediaType', mediaType);
-  return Promise.all(applyLimit(rows, searchParams).map(r => fetchLocalMediaSummary(r.tmdbId, mediaType)));
+  return Promise.all(
+    applyLimit(rows, searchParams).map(r => summaryFromRowOrFetch(db, 'favorites', r, mediaType))
+  );
 }
 
 route('GET', '/api/favorites/ids', async () => {
@@ -616,14 +669,18 @@ route('GET', '/api/favorites/ids', async () => {
 route('GET', '/api/favorites/movies', async (params, searchParams) => jsonResponse(await enrichedFavorites(await getDb(), 'movie', searchParams)));
 route('GET', '/api/favorites/tv', async (params, searchParams) => jsonResponse(await enrichedFavorites(await getDb(), 'tv', searchParams)));
 
-route('POST', '/api/favorites/:mediaType/:tmdbId', async ({ mediaType, tmdbId }) => {
+route('POST', '/api/favorites/:mediaType/:tmdbId', async ({ mediaType, tmdbId }, searchParams, getBody) => {
   if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
   const db = await getDb();
+  // See the matching comment on the watched-movies POST route above - same denormalize-at-write
+  // pattern, so Favorite Movies/Favorite Shows can render from IndexedDB with no TMDB call.
+  const body = (await getBody()) || {};
   await dbPut(db, 'favorites', {
     key: mediaKey(mediaType, tmdbId),
     mediaType,
     tmdbId: Number(tmdbId),
     favoritedAt: new Date().toISOString(),
+    ...summaryFieldsOnly(body),
   });
   return jsonResponse({});
 });

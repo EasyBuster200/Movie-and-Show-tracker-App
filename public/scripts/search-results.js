@@ -6,6 +6,10 @@ async function loadResultsPage() {
   const grid = document.getElementById('search-results-grid');
   const emptyEl = document.getElementById('search-results-empty');
 
+  emptyEl.hidden = true;
+  grid.innerHTML = '';
+  renderSkeletonRow(grid);
+
   try {
     const params = new URLSearchParams({ query: currentQuery, page: currentPage, include_adult: 'false' });
     const data = await fetch(`/api/tmdb/search/multi?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());

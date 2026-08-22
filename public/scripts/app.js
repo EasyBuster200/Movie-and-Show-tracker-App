@@ -41,6 +41,10 @@ async function loadAiringSoon(context) {
     emptyEl.textContent = message;
   }
 
+  container.hidden = false;
+  emptyEl.hidden = true;
+  renderSkeletonRow(container);
+
   try {
     const response = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' });
     if (response.status === 401) {
