@@ -498,13 +498,20 @@ main {
   width: 100%;
 }
 
+/* Just Prev, a "Page X of Y" label, and Next (see renderPagination in media.js) - always
+   exactly three elements, so this always fits one line on any phone width with nothing to
+   wrap or scroll, regardless of how many total pages exist. */
 .pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.4em;
+  gap: 0.8em;
   margin-top: 1.5em;
+}
+
+.page-label {
+  color: var(--secondary-text-clr);
+  font-size: 0.9rem;
 }
 
 .page-btn {
@@ -524,20 +531,9 @@ main {
   border-color: var(--accent-clr);
 }
 
-.page-btn.active {
-  background-color: var(--accent-clr);
-  border-color: var(--accent-clr);
-  color: #fff;
-}
-
 .page-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.page-ellipsis {
-  padding: 0 0.4em;
-  color: var(--secondary-text-clr);
 }
 
 /* Sized as one more slot in the row (same formula as .add-item-card) rather than a small dot
@@ -1033,6 +1029,40 @@ main {
   font-size: 0.9rem;
 }
 
+/* Same clamp as .episode-overview, but with a toggle (#bio-toggle-btn, only shown when the
+   clamp is actually cutting text off - see renderHero in person.js) rather than
+   .episode-overview's no-expand treatment - a TMDB biography can run to dozens of lines, long
+   enough that permanently hiding the rest isn't a great tradeoff the way it is for a couple of
+   sentences of episode summary. */
+.person-biography {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.person-biography.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.bio-toggle-btn {
+  display: inline-block;
+  margin-top: 0.5em;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--accent-clr);
+  cursor: pointer;
+}
+
+.bio-toggle-btn:hover {
+  text-decoration: underline;
+}
+
 .trailer-link {
   display: inline-block;
   margin-top: 0.5em;
@@ -1165,6 +1195,11 @@ main {
 .cast-card {
   flex: 0 0 auto;
   width: 110px;
+  cursor: pointer;
+}
+
+.cast-card:hover .cast-name {
+  color: var(--accent-clr);
 }
 
 .cast-card img {

@@ -29,18 +29,22 @@ function getUserRegion() {
   return (region || 'US').toUpperCase();
 }
 
-// Windowed Prev/1…current±2…Last/Next pagination, shared by every page with a paginated
-// TMDB grid (Movies/Shows browse grids, search results). `onPageChange(page)` is called when
-// a page button is clicked; it's up to the caller to update its own page state and reload.
+// Prev/Next + a "Page X of Y" label, shared by every page with a paginated TMDB grid
+// (Movies/Shows browse grids, search results, the person page's filmography). `onPageChange
+// (page)` is called when Prev/Next is clicked; it's up to the caller to update its own page
+// state and reload. Deliberately not per-number jump buttons (a previous version windowed
+// Prev/1…current±2…Last/Next) - that could overflow a phone-width row once there were enough
+// pages to need an ellipsis on both sides, wrapping Next onto its own line. Always exactly
+// three elements here, so it always fits on one line with no wrapping and no scrolling needed,
+// regardless of how many total pages exist.
 function renderPagination(container, currentPage, totalPages, onPageChange) {
   container.innerHTML = '';
   if (!totalPages || totalPages <= 1) return;
 
-  function pageButton(label, page, { disabled = false, active = false } = {}) {
+  function pageButton(label, page, disabled) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'page-btn';
-    if (active) btn.classList.add('active');
     btn.textContent = label;
     btn.disabled = disabled;
     if (!disabled) {
@@ -49,33 +53,14 @@ function renderPagination(container, currentPage, totalPages, onPageChange) {
     return btn;
   }
 
-  function ellipsis() {
-    const span = document.createElement('span');
-    span.className = 'page-ellipsis';
-    span.textContent = '…';
-    return span;
-  }
+  container.appendChild(pageButton('Prev', currentPage - 1, currentPage <= 1));
 
-  container.appendChild(pageButton('Prev', currentPage - 1, { disabled: currentPage <= 1 }));
+  const label = document.createElement('span');
+  label.className = 'page-label';
+  label.textContent = `Page ${currentPage} of ${totalPages}`;
+  container.appendChild(label);
 
-  const windowStart = Math.max(1, currentPage - 2);
-  const windowEnd = Math.min(totalPages, currentPage + 2);
-
-  if (windowStart > 1) {
-    container.appendChild(pageButton('1', 1));
-    if (windowStart > 2) container.appendChild(ellipsis());
-  }
-
-  for (let page = windowStart; page <= windowEnd; page++) {
-    container.appendChild(pageButton(String(page), page, { active: page === currentPage }));
-  }
-
-  if (windowEnd < totalPages) {
-    if (windowEnd < totalPages - 1) container.appendChild(ellipsis());
-    container.appendChild(pageButton(String(totalPages), totalPages));
-  }
-
-  container.appendChild(pageButton('Next', currentPage + 1, { disabled: currentPage >= totalPages }));
+  container.appendChild(pageButton('Next', currentPage + 1, currentPage >= totalPages));
 }
 
 // Appends a trailing "+" tile to a horizontally-scrolling row (a `.media-container`) that,
@@ -223,16 +208,37 @@ function detailUrl(item) {
   return `detail.html?type=${item.mediaType}&id=${item.tmdbId}`;
 }
 
+function personUrl(item) {
+  return `person.html?id=${item.tmdbId}`;
+}
+
+// Normalizes a raw TMDB person search/credit result. Deliberately not folded into the
+// standard item shape (tmdbId/mediaType/title/year/releaseDate/posterPath/voteAverage) used
+// for movies/shows - a person has none of releaseDate/voteAverage, and its image is a profile
+// photo (profile_path), not a poster - forcing it into that shape would just mean every reader
+// has to know which fields are actually meaningless for a `mediaType: 'person'` item.
+function normalizeTmdbPerson(raw) {
+  return {
+    tmdbId: raw.id,
+    mediaType: 'person',
+    name: raw.name || 'Unknown',
+    profilePath: raw.profile_path,
+    knownForDepartment: raw.known_for_department || null,
+  };
+}
+
 // Renders TMDB search-multi results into `resultsEl` as compact poster+title+meta rows,
 // shared by the typeahead dropdown (search.js) and the Lists quick-add card (lists.js).
 // `onSelect(item)` is called on row click — callers decide what a click means (navigate to
-// the detail page, add to a list, etc); this function only owns rendering, not `.hidden`
-// toggling, since that's presentational and differs per caller.
-function renderSearchResultRows(resultsEl, rawResults, onSelect) {
+// the detail/person page, add to a list, etc); this function only owns rendering, not
+// `.hidden` toggling, since that's presentational and differs per caller. `includePersons`
+// defaults off since a list only ever holds movies/shows - only the global search bar
+// (search.js) opts in.
+function renderSearchResultRows(resultsEl, rawResults, onSelect, { includePersons = false } = {}) {
   const items = rawResults
-    .filter(r => r.media_type === 'movie' || r.media_type === 'tv')
+    .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || (includePersons && r.media_type === 'person'))
     .slice(0, 8)
-    .map(normalizeTmdbTrendingItem);
+    .map(r => (r.media_type === 'person' ? normalizeTmdbPerson(r) : normalizeTmdbTrendingItem(r)));
 
   resultsEl.innerHTML = '';
 
@@ -245,12 +251,13 @@ function renderSearchResultRows(resultsEl, rawResults, onSelect) {
   }
 
   items.forEach(item => {
+    const isPerson = item.mediaType === 'person';
     const row = document.createElement('div');
     row.className = 'search-result-row';
 
     const img = document.createElement('img');
-    img.src = posterUrl(item.posterPath);
-    img.alt = item.title;
+    img.src = isPerson ? profileUrl(item.profilePath) : posterUrl(item.posterPath);
+    img.alt = isPerson ? item.name : item.title;
     row.appendChild(img);
 
     const info = document.createElement('div');
@@ -258,18 +265,58 @@ function renderSearchResultRows(resultsEl, rawResults, onSelect) {
 
     const title = document.createElement('p');
     title.className = 'search-result-title';
-    title.textContent = item.title;
+    title.textContent = isPerson ? item.name : item.title;
     info.appendChild(title);
 
     const meta = document.createElement('p');
     meta.className = 'search-result-meta';
-    meta.textContent = `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
+    meta.textContent = isPerson
+      ? (item.knownForDepartment || 'Person')
+      : `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
     info.appendChild(meta);
 
     row.appendChild(info);
     row.addEventListener('click', () => onSelect(item));
     resultsEl.appendChild(row);
   });
+}
+
+// A person's card for the search results grid - visually like .card, but a profile photo and
+// department instead of a poster/year/rating, no save/favorite/watched overlay (those are
+// movie/show-only concepts), and links to the person page instead of detail.html.
+function buildPersonCard(person) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const posterWrap = document.createElement('div');
+  posterWrap.className = 'card-poster';
+
+  const img = document.createElement('img');
+  img.src = profileUrl(person.profilePath);
+  img.alt = person.name;
+  posterWrap.appendChild(img);
+  card.appendChild(posterWrap);
+
+  const info = document.createElement('div');
+  info.className = 'card-info';
+
+  const meta = document.createElement('p');
+  meta.className = 'card-meta';
+  meta.textContent = person.knownForDepartment || 'Person';
+  info.appendChild(meta);
+
+  const title = document.createElement('h3');
+  title.className = 'card-title';
+  title.textContent = person.name;
+  info.appendChild(title);
+
+  card.appendChild(info);
+
+  card.addEventListener('click', () => {
+    window.location.href = personUrl(person);
+  });
+
+  return card;
 }
 
 function formatRating(voteAverage) {

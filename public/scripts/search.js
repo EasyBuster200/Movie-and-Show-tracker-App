@@ -31,8 +31,8 @@ function initSearchBar() {
 
   function renderResults(rawResults) {
     renderSearchResultRows(resultsEl, rawResults, item => {
-      window.location.href = detailUrl(item);
-    });
+      window.location.href = item.mediaType === 'person' ? personUrl(item) : detailUrl(item);
+    }, { includePersons: true });
     resultsEl.hidden = false;
   }
 

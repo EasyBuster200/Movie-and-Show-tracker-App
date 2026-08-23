@@ -137,6 +137,9 @@ function renderCast(data) {
   cast.forEach(person => {
     const card = document.createElement('div');
     card.className = 'cast-card';
+    card.addEventListener('click', () => {
+      window.location.href = personUrl({ tmdbId: person.id });
+    });
 
     const img = document.createElement('img');
     img.src = profileUrl(person.profile_path);

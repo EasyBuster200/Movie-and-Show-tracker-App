@@ -71,18 +71,26 @@ async function tmdbFetchWithTimeout(url, headers) {
 
 // TMDB's `adult` flag (on movie/tv objects specifically) marks actual pornographic content,
 // not just mature-rated mainstream movies/shows (an R-rated horror film is never adult:true) -
-// so filtering on it removes the former without touching the latter. Only ever applied to the
-// two known media-listing shapes (a top-level `results` array - search/discover/trending/
-// upcoming/recommendations - or a collection's `parts` array), never to unrelated arrays like
-// `credits.cast`/`credits.crew` on a detail response, where a person object's own `adult` field
-// means something entirely different (their known-for work, not this request's content) and
-// stripping them would incorrectly drop legitimate cast/crew credits.
+// so filtering on it removes the former without touching the latter. Applied to the top-level
+// `results` array (search/discover/trending/upcoming/recommendations) and a collection's
+// `parts` array, both always movie/tv objects. `cast`/`crew` arrays appear in two different
+// shapes depending on the request - a movie/show's own credits (person objects, no media_type,
+// whose own `adult` field means something entirely different - their known-for work, not this
+// request's content) versus a person's combined_credits (movie/tv objects, each with a real
+// media_type and a real adult flag for that title). Filtering only entries that actually carry
+// media_type distinguishes the two without needing to know which endpoint this came from.
 function stripAdultItems(data) {
   if (data && Array.isArray(data.results)) {
     data.results = data.results.filter(item => !(item && item.adult));
   }
   if (data && Array.isArray(data.parts)) {
     data.parts = data.parts.filter(item => !(item && item.adult));
+  }
+  if (data && Array.isArray(data.cast)) {
+    data.cast = data.cast.filter(item => !(item && item.media_type && item.adult));
+  }
+  if (data && Array.isArray(data.crew)) {
+    data.crew = data.crew.filter(item => !(item && item.media_type && item.adult));
   }
   return data;
 }

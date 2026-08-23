@@ -13,7 +13,7 @@ async function loadResultsPage() {
   try {
     const params = new URLSearchParams({ query: currentQuery, page: currentPage, include_adult: 'false' });
     const data = await fetch(`/api/tmdb/search/multi?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());
-    const results = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv');
+    const results = (data.results || []).filter(r => r.media_type === 'movie' || r.media_type === 'tv' || r.media_type === 'person');
 
     grid.innerHTML = '';
     const paginationEl = document.getElementById('search-results-pagination');
@@ -25,6 +25,10 @@ async function loadResultsPage() {
 
     emptyEl.hidden = true;
     results.forEach(raw => {
+      if (raw.media_type === 'person') {
+        grid.appendChild(buildPersonCard(normalizeTmdbPerson(raw)));
+        return;
+      }
       const item = normalizeTmdbTrendingItem(raw);
       const card = buildCard(item);
       attachStandardActions(card, item, context);
