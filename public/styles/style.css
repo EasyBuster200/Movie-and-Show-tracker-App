@@ -158,8 +158,10 @@ main {
   display: none;
 }
 
-#sidebar a:hover {
-  background-color: var(--hover-clr);
+@media (hover: hover) and (pointer: fine) {
+  #sidebar a:hover {
+    background-color: var(--hover-clr);
+  }
 }
 
 .profile-banner {
@@ -189,8 +191,14 @@ main {
   justify-content: center;
 }
 
-.profile-menu-btn:hover, .profile-menu-btn.open {
+.profile-menu-btn.open {
   background-color: rgba(17, 18, 26, 0.6);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .profile-menu-btn:hover {
+    background-color: rgba(17, 18, 26, 0.6);
+  }
 }
 
 .profile-menu-dropdown {
@@ -219,8 +227,10 @@ main {
   font: inherit;
 }
 
-.profile-menu-item:hover {
-  background-color: var(--card-clr);
+@media (hover: hover) and (pointer: fine) {
+  .profile-menu-item:hover {
+    background-color: var(--card-clr);
+  }
 }
 
 .profile-menu-divider {
@@ -247,8 +257,10 @@ main {
   font: inherit;
 }
 
-.import-choice-btn:hover {
-  border-color: var(--accent-clr);
+@media (hover: hover) and (pointer: fine) {
+  .import-choice-btn:hover {
+    border-color: var(--accent-clr);
+  }
 }
 
 .import-choice-title {
@@ -406,9 +418,11 @@ main {
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 
-.add-item-card:hover {
-  color: var(--accent-clr);
-  border-color: var(--accent-clr);
+@media (hover: hover) and (pointer: fine) {
+  .add-item-card:hover {
+    color: var(--accent-clr);
+    border-color: var(--accent-clr);
+  }
 }
 
 .add-item-card.active {
@@ -526,9 +540,11 @@ main {
   font: inherit;
 }
 
-.page-btn:hover:not(:disabled) {
-  color: var(--text-clr);
-  border-color: var(--accent-clr);
+@media (hover: hover) and (pointer: fine) {
+  .page-btn:hover:not(:disabled) {
+    color: var(--text-clr);
+    border-color: var(--accent-clr);
+  }
 }
 
 .page-btn:disabled {
@@ -565,9 +581,11 @@ main {
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
-.more-btn:hover {
-  border-color: var(--accent-clr);
-  background-color: var(--hover-clr);
+@media (hover: hover) and (pointer: fine) {
+  .more-btn:hover {
+    border-color: var(--accent-clr);
+    background-color: var(--hover-clr);
+  }
 }
 
 .more-btn:disabled {
@@ -624,8 +642,10 @@ main {
   transition: transform 0.2s ease;
 }
 
-.card:hover img {
-  transform: scale(1.08);
+@media (hover: hover) and (pointer: fine) {
+  .card:hover img {
+    transform: scale(1.08);
+  }
 }
 
 .card-overlay-actions {
@@ -723,9 +743,11 @@ main {
   border-color: var(--danger-clr);
 }
 
-.card-action-danger:hover {
-  background-color: var(--danger-clr);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .card-action-danger:hover {
+    background-color: var(--danger-clr);
+    color: #fff;
+  }
 }
 
 .card-action.open {
@@ -960,8 +982,10 @@ main {
   flex-shrink: 0;
 }
 
-.back-btn:hover {
-  color: var(--text-clr);
+@media (hover: hover) and (pointer: fine) {
+  .back-btn:hover {
+    color: var(--text-clr);
+  }
 }
 
 .detail-hero {
@@ -1029,11 +1053,6 @@ main {
   font-size: 0.9rem;
 }
 
-/* Same clamp as .episode-overview, but with a toggle (#bio-toggle-btn, only shown when the
-   clamp is actually cutting text off - see renderHero in person.js) rather than
-   .episode-overview's no-expand treatment - a TMDB biography can run to dozens of lines, long
-   enough that permanently hiding the rest isn't a great tradeoff the way it is for a couple of
-   sentences of episode summary. */
 .person-biography {
   display: -webkit-box;
   -webkit-line-clamp: 5;
@@ -1041,13 +1060,18 @@ main {
   overflow: hidden;
 }
 
-.person-biography.expanded {
+/* Both clamped blocks (a person's biography, an episode's overview) share the same "remove
+   the clamp" reset once their .show-more-btn toggle (below) is clicked - only shown per-element
+   when its own clamp is actually cutting text off, see renderHero in person.js and
+   buildEpisodeCard in detail.js. */
+.person-biography.expanded,
+.episode-overview.expanded {
   display: block;
   -webkit-line-clamp: unset;
   overflow: visible;
 }
 
-.bio-toggle-btn {
+.show-more-btn {
   display: inline-block;
   margin-top: 0.5em;
   background: none;
@@ -1059,8 +1083,10 @@ main {
   cursor: pointer;
 }
 
-.bio-toggle-btn:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .show-more-btn:hover {
+    text-decoration: underline;
+  }
 }
 
 .trailer-link {
@@ -1071,8 +1097,10 @@ main {
   text-decoration: none;
 }
 
-.trailer-link:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .trailer-link:hover {
+    text-decoration: underline;
+  }
 }
 
 #detail-actions {
@@ -1179,8 +1207,10 @@ main {
   padding: 0;
 }
 
-.clear-rating-btn:hover {
-  color: var(--text-clr);
+@media (hover: hover) and (pointer: fine) {
+  .clear-rating-btn:hover {
+    color: var(--text-clr);
+  }
 }
 
 .cast-list {
@@ -1198,8 +1228,10 @@ main {
   cursor: pointer;
 }
 
-.cast-card:hover .cast-name {
-  color: var(--accent-clr);
+@media (hover: hover) and (pointer: fine) {
+  .cast-card:hover .cast-name {
+    color: var(--accent-clr);
+  }
 }
 
 .cast-card img {
@@ -1242,17 +1274,30 @@ main {
   text-align: left;
 }
 
-.season-header:hover {
-  background-color: var(--hover-clr);
-}
-
 .season-header:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.season-header:disabled:hover {
-  background-color: transparent;
+/* (hover: hover) and (pointer: fine) - same guard as .card-action/.card-overlay-actions
+   .card-action above - scopes this to devices with a real pointer that can actually leave the
+   element - on a touchscreen, tapping the header would otherwise trigger :hover with nothing
+   to trigger the matching "un-hover" (there's no pointer to move away), so the lighter
+   background stuck around after the tap instead of clearing. :active below gives touch a
+   proper press state instead - it applies while held and clears immediately on release,
+   exactly what "highlighted while clicking, not after" needs. */
+@media (hover: hover) and (pointer: fine) {
+  .season-header:hover {
+    background-color: var(--hover-clr);
+  }
+
+  .season-header:disabled:hover {
+    background-color: transparent;
+  }
+}
+
+.season-header:active:not(:disabled) {
+  background-color: var(--hover-clr);
 }
 
 .season-header-progress {
@@ -1303,8 +1348,10 @@ main {
   font: inherit;
 }
 
-.confirm-btn:hover {
-  border-color: var(--accent-clr);
+@media (hover: hover) and (pointer: fine) {
+  .confirm-btn:hover {
+    border-color: var(--accent-clr);
+  }
 }
 
 .confirm-btn-yes {
@@ -1407,8 +1454,10 @@ main {
   cursor: pointer;
 }
 
-.search-result-row:hover {
-  background-color: var(--card-clr);
+@media (hover: hover) and (pointer: fine) {
+  .search-result-row:hover {
+    background-color: var(--card-clr);
+  }
 }
 
 .search-result-row img {

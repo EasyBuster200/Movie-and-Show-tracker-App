@@ -396,6 +396,25 @@ function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarke
   overview.textContent = hasOverview ? episode.overview : 'Coming soon.';
   info.appendChild(overview);
 
+  const overviewToggle = document.createElement('button');
+  overviewToggle.type = 'button';
+  overviewToggle.className = 'show-more-btn';
+  overviewToggle.textContent = 'Show more';
+  overviewToggle.hidden = true;
+  overviewToggle.addEventListener('click', event => {
+    event.stopPropagation();
+    const expanded = overview.classList.toggle('expanded');
+    overviewToggle.textContent = expanded ? 'Show less' : 'Show more';
+  });
+  info.appendChild(overviewToggle);
+
+  // scrollHeight/clientHeight only reflect the real clamp once this card has been laid out in
+  // the DOM - the caller appends the returned card synchronously right after this function
+  // returns, so it will be by the next frame.
+  requestAnimationFrame(() => {
+    overviewToggle.hidden = overview.scrollHeight <= overview.clientHeight;
+  });
+
   card.appendChild(info);
   return card;
 }
