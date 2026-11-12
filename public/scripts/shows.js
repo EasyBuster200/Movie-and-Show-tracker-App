@@ -29,7 +29,7 @@ async function loadPaginatedRow(baseUrl, containerId) {
     page => fetch(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${page}`, { credentials: 'same-origin' })
       .then(r => r.json()),
     raw => {
-      const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+      const item = toStandardItem(raw, MEDIA_TYPE);
       const card = buildCard(item);
       attachStandardActions(card, item, context);
       return card;
@@ -186,7 +186,7 @@ async function loadBrowsePage() {
     (data.results || [])
       .filter(raw => !watchedShowIds.has(raw.id))
       .forEach(raw => {
-        const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+        const item = toStandardItem(raw, MEDIA_TYPE);
         const card = buildCard(item);
         attachStandardActions(card, item, context);
         grid.appendChild(card);

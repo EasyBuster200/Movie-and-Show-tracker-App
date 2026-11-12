@@ -96,7 +96,7 @@ async function renderFilmography(personId, context) {
       credits
         .slice((page - 1) * FILMOGRAPHY_PAGE_SIZE, page * FILMOGRAPHY_PAGE_SIZE)
         .forEach(raw => {
-          const item = normalizeTmdbTrendingItem(raw);
+          const item = toStandardItem(raw);
           const card = buildCard(item);
           attachStandardActions(card, item, context);
           grid.appendChild(card);

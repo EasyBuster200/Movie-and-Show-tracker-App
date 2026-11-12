@@ -14,7 +14,9 @@ Everyone who installs it keeps their own data on their own device.
 ## Features
 
 - **Browse & search** — trending, popular, and recommended movies/shows via TMDB, plus a live
-  search bar.
+  search bar that also finds actors.
+- **Actor pages** — tap any cast member (or an actor in search) for their bio and a full
+  filmography you can save/watch/favorite from directly.
 - **Lists & Bookmarks** — save anything to custom lists, with a dedicated Bookmarks page for
   quick-saves.
 - **Per-episode watch tracking** — movies are a simple watched/unwatched toggle; shows track
@@ -92,13 +94,27 @@ plain browser tab — serve `public/` with any static file server and open `prof
 to create a profile. The one thing you can't verify this way is anything native (the backup
 feature's Share sheet, real back-button behavior) — those need the actual Android build.
 
+## Tests
+
+```bash
+npm test
+```
+
+Runs the Node test suite in `tests/` (Node's built-in test runner, no framework). It loads the
+app's real local data layer (`localApi.js` and friends) into a sandbox with an in-memory
+IndexedDB and a fake TMDB, then exercises the same `/api/...` routes the pages call — lists,
+watch tracking, stats, the new-episode check, recommendations, caching/retries. UI code isn't
+covered; check that in a browser as described above.
+
 ## Project structure
 
 ```
 public/          the entire app (HTML/CSS/JS), loaded into Capacitor's WebView
   scripts/       localDb.js (IndexedDB), localApi.js (fetch shim), profiles.js (local accounts),
-                 backup.js, tvtime-import.js, plus one script per page
+                 standardItem.js (shared item shape), backup.js, tvtime-import.js, plus one
+                 script per page
   styles/        style.css (app-wide) + profile-picker.css (profile picker)
+tests/           Node test suite for the local data layer (npm test)
 android/         the Capacitor-generated native wrapper (mostly boilerplate)
 docs/icons/      source Material Symbols SVGs, copy-pasted as reference for inline <svg> icons
 ```

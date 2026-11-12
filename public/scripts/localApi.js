@@ -268,19 +268,8 @@ async function fetchLocalTmdbUncached(tmdbPath) {
 // other reasons (e.g. /api/watched/shows needs the full show for its episode count) - fetching
 // it twice, once here and once for the summary, would double the request count for no reason.
 function summaryFromTmdbData(tmdbId, mediaType, data) {
-  if (!data) return { tmdbId, mediaType, title: 'Unknown', year: null, releaseDate: null, posterPath: null, voteAverage: null };
-
-  const title = data.title || data.name;
-  const releaseDate = data.release_date || data.first_air_date || null;
-  return {
-    tmdbId,
-    mediaType,
-    title,
-    year: releaseDate ? releaseDate.split('-')[0] : null,
-    releaseDate,
-    posterPath: data.poster_path,
-    voteAverage: data.vote_average,
-  };
+  if (!data) return unknownStandardItem(tmdbId, mediaType);
+  return { ...toStandardItem(data, mediaType), tmdbId };
 }
 
 // Mirrors server/tmdbClient.js's fetchMediaSummary — same "standard item shape" contract.
@@ -289,41 +278,22 @@ async function fetchLocalMediaSummary(tmdbId, mediaType) {
   return summaryFromTmdbData(tmdbId, mediaType, data);
 }
 
-// The subset of the standard item shape worth denormalizing onto a watched_movies/favorites
-// row, so reading it back later never needs a TMDB round trip for these fields again. Only
-// includes keys actually present on `source`, so a caller with no display data handy (e.g. a
-// POST body-less request) doesn't stamp explicit `undefined`s onto the row.
-function summaryFieldsOnly(source) {
-  const fields = {};
-  ['title', 'year', 'releaseDate', 'posterPath', 'voteAverage'].forEach(key => {
-    if (source[key] !== undefined) fields[key] = source[key];
-  });
-  return fields;
-}
-
 // Reads a watched_movies/favorites row's own denormalized display fields if it has them
-// (the common case now - see summaryFieldsOnly above), with no TMDB call at all. Rows written
+// (the common case now - written at POST time via standardItem.js's pickSummaryFields), with
+// no TMDB call at all. Rows written
 // before this existed, or by tvtime-import.js's bulk import (no TMDB summary data handy at
 // that point), fall back to a live fetch and get backfilled so every later read is instant
 // too. A failed fetch's "Unknown" placeholder is deliberately NOT persisted, so it stays
 // retryable next time instead of getting stuck that way permanently.
 async function summaryFromRowOrFetch(db, storeName, row, mediaType) {
   if (row.title !== undefined) {
-    return {
-      tmdbId: row.tmdbId,
-      mediaType,
-      title: row.title,
-      year: row.year,
-      releaseDate: row.releaseDate,
-      posterPath: row.posterPath,
-      voteAverage: row.voteAverage,
-    };
+    return { tmdbId: row.tmdbId, mediaType, ...pickSummaryFields(row) };
   }
 
   const data = await fetchLocalTmdb(`/${mediaType}/${row.tmdbId}`);
   const summary = summaryFromTmdbData(row.tmdbId, mediaType, data);
   if (data) {
-    await dbPut(db, storeName, { ...row, ...summaryFieldsOnly(summary) });
+    await dbPut(db, storeName, { ...row, ...pickSummaryFields(summary) });
   }
   return summary;
 }
@@ -352,8 +322,7 @@ async function computeNewEpisodeSeasons({ tmdbId, watchedRows, lastWatchedAt, sh
   candidateSeasons.forEach((s, i) => {
     const episodes = (seasonData[i] && seasonData[i].episodes) || [];
     const hasNew = episodes.some(ep =>
-      ep.air_date &&
-      new Date(ep.air_date) <= now &&
+      !isUnreleased(ep.air_date, now) &&
       new Date(ep.air_date) > lastWatched &&
       !watchedSet.has(`${s.season_number}:${ep.episode_number}`)
     );
@@ -482,7 +451,7 @@ route('POST', '/api/watched/movies/:tmdbId', async ({ tmdbId }, searchParams, ge
   await dbPut(db, 'watched_movies', {
     tmdbId: Number(tmdbId),
     watchedAt: new Date().toISOString(),
-    ...summaryFieldsOnly(body),
+    ...pickSummaryFields(body),
   });
   return jsonResponse({});
 });
@@ -688,7 +657,7 @@ route('POST', '/api/favorites/:mediaType/:tmdbId', async ({ mediaType, tmdbId },
     mediaType,
     tmdbId: Number(tmdbId),
     favoritedAt: new Date().toISOString(),
-    ...summaryFieldsOnly(body),
+    ...pickSummaryFields(body),
   });
   return jsonResponse({});
 });
@@ -741,19 +710,6 @@ route('GET', '/api/stats', async () => {
 
 const SEED_COUNT = 5;
 const REC_PAGE_SIZE = 20;
-
-function normalizeRecommendation(raw, mediaType) {
-  const releaseDate = raw.release_date || raw.first_air_date || null;
-  return {
-    tmdbId: raw.id,
-    mediaType,
-    title: raw.title || raw.name || 'Untitled',
-    year: releaseDate ? releaseDate.split('-')[0] : null,
-    releaseDate,
-    posterPath: raw.poster_path,
-    voteAverage: raw.vote_average,
-  };
-}
 
 // Seeding + ranking is the expensive part (one TMDB /recommendations call per seed), but its
 // result only depends on watched/list state as of when the row first loaded - re-deriving it on
@@ -841,7 +797,7 @@ route('GET', '/api/recommendations/:mediaType', async ({ mediaType }, searchPara
   const totalPages = Math.max(1, Math.ceil(ranked.length / REC_PAGE_SIZE));
   const items = ranked
     .slice((page - 1) * REC_PAGE_SIZE, page * REC_PAGE_SIZE)
-    .map(raw => normalizeRecommendation(raw, mediaType));
+    .map(raw => toStandardItem(raw, mediaType));
 
   return jsonResponse({ seedCount, items, page, totalPages });
 });

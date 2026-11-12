@@ -16,7 +16,7 @@ async function fetchTrending(context) {
       page => fetch(`${baseUrl}&page=${page}`, { headers: { accept: 'application/json' } }).then(r => r.json()),
       raw => {
         if (raw.media_type === 'person') return null;
-        const item = normalizeTmdbTrendingItem(raw);
+        const item = toStandardItem(raw);
         const card = buildCard(item);
         attachStandardActions(card, item, context);
         return card;

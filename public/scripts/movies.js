@@ -19,7 +19,7 @@ async function loadPaginatedRow(baseUrl, containerId, { filterItem } = {}) {
       .then(r => r.json()),
     raw => {
       if (filterItem && !filterItem(raw)) return null;
-      const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+      const item = toStandardItem(raw, MEDIA_TYPE);
       const card = buildCard(item);
       attachStandardActions(card, item, context);
       return card;
@@ -117,7 +117,7 @@ async function loadBrowsePage() {
     (data.results || [])
       .filter(raw => !context.watchedMovieIds.has(raw.id))
       .forEach(raw => {
-        const item = normalizeTmdbTrendingItem({ ...raw, media_type: MEDIA_TYPE });
+        const item = toStandardItem(raw, MEDIA_TYPE);
         const card = buildCard(item);
         attachStandardActions(card, item, context);
         grid.appendChild(card);
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const region = getUserRegion();
   loadPaginatedRow(`/api/tmdb/discover/movie?sort_by=popularity.desc&with_origin_country=${region}&language=en-US`, 'popular-movies');
   loadPaginatedRow('/api/tmdb/movie/upcoming?language=en-US', 'upcoming-movies', {
-    filterItem: raw => !raw.release_date || new Date(raw.release_date) > new Date(),
+    filterItem: raw => isUnreleased(raw.release_date),
   });
   loadRecommended();
   loadGenreToolbar();

@@ -48,19 +48,6 @@ function showConfirmDialog(message) {
   });
 }
 
-function toStandardItem(data, mediaType) {
-  const releaseDate = data.release_date || data.first_air_date || null;
-  return {
-    tmdbId: data.id,
-    mediaType,
-    title: data.title || data.name,
-    year: releaseDate ? releaseDate.split('-')[0] : null,
-    releaseDate,
-    posterPath: data.poster_path,
-    voteAverage: data.vote_average,
-  };
-}
-
 function formatRuntime(minutes) {
   if (!minutes) return null;
   const hours = Math.floor(minutes / 60);
@@ -306,14 +293,14 @@ function formatAirDate(airDate) {
 
 function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarkedWatched, lastWatchedAt }) {
   const key = `${season.season_number}:${episode.episode_number}`;
-  const isUnreleased = !episode.air_date || new Date(episode.air_date) > new Date();
-  const isNew = !isUnreleased && !watchedSet.has(key) && lastWatchedAt && new Date(episode.air_date) > new Date(lastWatchedAt);
+  const unreleased = isUnreleased(episode.air_date);
+  const isNew = !unreleased && !watchedSet.has(key) && lastWatchedAt && new Date(episode.air_date) > new Date(lastWatchedAt);
   const hasRealTitle = episode.name && !/^Episode\s+\d+$/i.test(episode.name.trim());
   const hasOverview = episode.overview && episode.overview.trim().length > 0;
 
   const card = document.createElement('div');
   card.className = 'episode-card';
-  if (isUnreleased) card.classList.add('unreleased');
+  if (unreleased) card.classList.add('unreleased');
 
   let still;
   if (episode.still_path) {
@@ -350,7 +337,7 @@ function buildEpisodeCard(episode, season, item, watchedSet, { onToggle, onMarke
   watchedBtn.innerHTML = eyeIconSvg();
   watchedBtn.classList.toggle('active', watchedSet.has(key));
 
-  if (isUnreleased) {
+  if (unreleased) {
     watchedBtn.disabled = true;
     watchedBtn.title = 'Not yet aired';
   } else {
@@ -433,7 +420,7 @@ async function renderCollection(collectionId, currentTmdbId, context) {
   document.getElementById('collection-title').textContent = collection.name || 'Collection';
   listEl.innerHTML = '';
   parts.forEach(part => {
-    const item = normalizeTmdbTrendingItem({ ...part, media_type: 'movie' });
+    const item = toStandardItem(part, 'movie');
     const card = buildCard(item);
     attachStandardActions(card, item, context);
     listEl.appendChild(card);

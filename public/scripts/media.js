@@ -238,7 +238,7 @@ function renderSearchResultRows(resultsEl, rawResults, onSelect, { includePerson
   const items = rawResults
     .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || (includePersons && r.media_type === 'person'))
     .slice(0, 8)
-    .map(r => (r.media_type === 'person' ? normalizeTmdbPerson(r) : normalizeTmdbTrendingItem(r)));
+    .map(r => (r.media_type === 'person' ? normalizeTmdbPerson(r) : toStandardItem(r)));
 
   resultsEl.innerHTML = '';
 
@@ -323,20 +323,6 @@ function formatRating(voteAverage) {
   if (voteAverage === null || voteAverage === undefined) return 'N/A';
   const rating = Number(voteAverage);
   return (rating - Math.floor(rating)) === 0 ? rating : rating.toFixed(1);
-}
-
-// Normalizes a raw TMDB trending-endpoint item into the common shape used across pages.
-function normalizeTmdbTrendingItem(raw) {
-  const releaseDate = raw.release_date || raw.first_air_date || null;
-  return {
-    tmdbId: raw.id,
-    mediaType: raw.media_type === 'movie' ? 'movie' : 'tv',
-    title: raw.title || raw.name || 'Untitled',
-    year: releaseDate ? releaseDate.split('-')[0] : null,
-    releaseDate,
-    posterPath: raw.poster_path,
-    voteAverage: raw.vote_average,
-  };
 }
 
 function buildCard(item) {
@@ -505,8 +491,8 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
   button.type = 'button';
   button.innerHTML = eyeIconSvg();
 
-  const isUnreleased = !item.releaseDate || new Date(item.releaseDate) > new Date();
-  if (isUnreleased) {
+  const unreleased = isUnreleased(item.releaseDate);
+  if (unreleased) {
     button.disabled = true;
     button.title = 'Not yet released';
     actionsEl.appendChild(button);
@@ -538,7 +524,7 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemSummaryFields(item)),
+        body: JSON.stringify(pickSummaryFields(item)),
       });
       watchedMovieIds.add(item.tmdbId);
     }
@@ -551,18 +537,6 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
 
 function favoriteKey(item) {
   return `${item.mediaType}:${item.tmdbId}`;
-}
-
-// The subset of the standard item shape worth denormalizing onto a watched/favorite row at
-// write time, so reading it back later never needs a TMDB round trip for these fields again.
-function itemSummaryFields(item) {
-  return {
-    title: item.title,
-    year: item.year,
-    releaseDate: item.releaseDate,
-    posterPath: item.posterPath,
-    voteAverage: item.voteAverage,
-  };
 }
 
 // Fetches the current user's watched-movie ids and favorite ids once per page,
@@ -619,7 +593,7 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemSummaryFields(item)),
+        body: JSON.stringify(pickSummaryFields(item)),
       });
       favoriteIds.add(key);
     }

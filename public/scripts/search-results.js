@@ -29,7 +29,7 @@ async function loadResultsPage() {
         grid.appendChild(buildPersonCard(normalizeTmdbPerson(raw)));
         return;
       }
-      const item = normalizeTmdbTrendingItem(raw);
+      const item = toStandardItem(raw);
       const card = buildCard(item);
       attachStandardActions(card, item, context);
       grid.appendChild(card);

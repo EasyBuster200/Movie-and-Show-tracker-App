@@ -5,7 +5,7 @@
   "scripts": {
     "sync": "cap sync android",
     "open:android": "cap open android",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test tests/"
   },
   "keywords": [],
   "author": "",
@@ -17,6 +17,7 @@
     "@capacitor/share": "^6.0.4"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.1"
+    "@capacitor/cli": "^6.2.1",
+    "fake-indexeddb": "^6.2.8"
   }
 }
