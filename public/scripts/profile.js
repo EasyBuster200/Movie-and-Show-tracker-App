@@ -167,59 +167,10 @@ function buildDialog(className) {
   return { overlay, modal };
 }
 
-// The moved Import action: ask which kind of file this is before touching anything, since a
-// TV Time export and an app backup need completely different handling.
-function openImportChooser() {
-  const { overlay, modal } = buildDialog('import-chooser-modal');
-
-  const title = document.createElement('p');
-  title.textContent = 'What are you importing?';
-  modal.appendChild(title);
-
-  function choice(titleText, descText, onClick) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'import-choice-btn';
-    const t = document.createElement('div');
-    t.className = 'import-choice-title';
-    t.textContent = titleText;
-    const d = document.createElement('div');
-    d.className = 'import-choice-desc';
-    d.textContent = descText;
-    btn.appendChild(t);
-    btn.appendChild(d);
-    btn.addEventListener('click', () => {
-      overlay.remove();
-      onClick();
-    });
-    modal.appendChild(btn);
-  }
-
-  choice(
-    'An old TV Time export',
-'Select all the files from a TV Time GDPR data request (or at least user_tv_show_data.csv and tracking-prod-records.csv, for exact per-episode results) — resolves your shows against TMDB and marks watched/adds them to a list.',
-    () => document.getElementById('import-tvtime-input').click()
-  );
-  choice(
-    "One of this app's own backups",
-    'A .json file exported from this app\'s "Export Backup" — restores it as a new profile.',
-    () => document.getElementById('import-app-input').click()
-  );
-
-  const cancelRow = document.createElement('div');
-  cancelRow.className = 'confirm-actions';
-  const cancelBtn = document.createElement('button');
-  cancelBtn.type = 'button';
-  cancelBtn.className = 'confirm-btn';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => overlay.remove());
-  cancelRow.appendChild(cancelBtn);
-  modal.appendChild(cancelRow);
-
-  overlay.addEventListener('click', event => { if (event.target === overlay) overlay.remove(); });
-}
-
-function initAppBackupImport() {
+// Restores a backup as a new profile. Backups never carry a TMDB key (see backup.js), so the
+// new profile reuses this one's - same device, same person picking the file. It can be changed
+// later from the profile picker's Edit.
+function initAppBackupImport(user) {
   const input = document.getElementById('import-app-input');
   input.addEventListener('change', async () => {
     const file = input.files[0];
@@ -227,10 +178,14 @@ function initAppBackupImport() {
     if (!file) return;
 
     try {
-      const profile = await importBackupFile(file);
+      const payload = await readBackupFile(file);
+      const profile = await restoreBackup(payload, {
+        displayName: payload.profile.displayName,
+        tmdbApiKey: legacyBackupApiKey(payload) || user.tmdbApiKey,
+      });
       const { overlay, modal } = buildDialog('');
       const p = document.createElement('p');
-      p.textContent = `Imported as a new profile, "${profile.displayName}".`;
+      p.textContent = `Imported as a new profile, "${profile.displayName}". It uses the same TMDB key as this profile.`;
       const actions = document.createElement('div');
       actions.className = 'confirm-actions';
       const stayBtn = document.createElement('button');
@@ -257,100 +212,6 @@ function initAppBackupImport() {
   });
 }
 
-// Replaces the modal's body with a message + a single OK button, for any dead-end state
-// (no file selected, wrong file, or an outright error) instead of leaving the dialog stuck
-// showing stale "Reading files…" text with no way out and no explanation.
-function showDialogDeadEnd(overlay, modal, message) {
-  modal.innerHTML = '';
-  const p = document.createElement('p');
-  p.textContent = message;
-  const actions = document.createElement('div');
-  actions.className = 'confirm-actions';
-  const okBtn = document.createElement('button');
-  okBtn.type = 'button';
-  okBtn.className = 'confirm-btn';
-  okBtn.textContent = 'OK';
-  okBtn.addEventListener('click', () => overlay.remove());
-  actions.appendChild(okBtn);
-  modal.appendChild(p);
-  modal.appendChild(actions);
-}
-
-function initTvTimeImport() {
-  const input = document.getElementById('import-tvtime-input');
-  input.addEventListener('change', async () => {
-    const files = [...input.files];
-    input.value = '';
-
-    const { overlay, modal } = buildDialog('import-status-modal');
-    const status = document.createElement('p');
-    status.textContent = 'Reading files…';
-    modal.appendChild(status);
-
-    if (files.length === 0) {
-      // The picker returned with nothing selected - some Android file-manager apps do this on
-      // multi-select even after files look tapped/highlighted, rather than silently doing
-      // nothing with no feedback at all.
-      showDialogDeadEnd(overlay, modal, "No file came back from the picker. Try again and select at least user_tv_show_data.csv.");
-      return;
-    }
-
-    try {
-      const { showRows, watchRowsBySeriesId } = await findTvTimeData(files);
-      if (!showRows) {
-        showDialogDeadEnd(overlay, modal, "That doesn't look like a TV Time export — none of the selected files match user_tv_show_data.csv, the one with your actual show list.");
-        return;
-      }
-
-      const summary = await importTvTimeShows(showRows, watchRowsBySeriesId, message => { status.textContent = message; });
-
-      modal.innerHTML = '';
-      const resultTitle = document.createElement('p');
-      resultTitle.textContent = 'Import complete.';
-      modal.appendChild(resultTitle);
-
-      const list = document.createElement('div');
-      list.className = 'import-status-list';
-      const lines = [
-        `${summary.markedExact.length} show${summary.markedExact.length === 1 ? '' : 's'} matched episode-by-episode${summary.markedExact.length ? `: ${summary.markedExact.join(', ')}` : ''}.`,
-        `${summary.markedWatched.length} show${summary.markedWatched.length === 1 ? '' : 's'} marked fully watched (estimated)${summary.markedWatched.length ? `: ${summary.markedWatched.join(', ')}` : ''}.`,
-        `${summary.addedToList.length} show${summary.addedToList.length === 1 ? '' : 's'} added to "TV Time Shows"${summary.addedToList.length ? `: ${summary.addedToList.join(', ')}` : ''}.`,
-      ];
-      if (!watchRowsBySeriesId) {
-        lines.push('No tracking-prod-records.csv found, so exact episode data wasn\'t available — select it alongside user_tv_show_data.csv next time for precise per-episode results.');
-      }
-      if (summary.favorited.length) {
-        lines.push(`${summary.favorited.length} show${summary.favorited.length === 1 ? '' : 's'} favorited: ${summary.favorited.join(', ')}.`);
-      }
-      if (summary.unmatched.length) {
-        lines.push(`${summary.unmatched.length} couldn't be matched on TMDB: ${summary.unmatched.join(', ')}.`);
-      }
-      lines.forEach(line => {
-        const p = document.createElement('p');
-        p.textContent = line;
-        list.appendChild(p);
-      });
-      modal.appendChild(list);
-
-      const actions = document.createElement('div');
-      actions.className = 'confirm-actions';
-      const okBtn = document.createElement('button');
-      okBtn.type = 'button';
-      okBtn.className = 'confirm-btn confirm-btn-yes';
-      okBtn.textContent = 'Done';
-      okBtn.addEventListener('click', () => {
-        overlay.remove();
-        refreshAll();
-      });
-      actions.appendChild(okBtn);
-      modal.appendChild(actions);
-    } catch (error) {
-      console.error('TV Time import failed:', error);
-      showDialogDeadEnd(overlay, modal, `Something went wrong reading that file: ${error.message || error}`);
-    }
-  });
-}
-
 function initExportBackup(user) {
   const button = document.getElementById('export-backup-btn');
   const status = document.getElementById('export-backup-status');
@@ -367,6 +228,70 @@ function initExportBackup(user) {
     }
     status.hidden = false;
     button.disabled = false;
+  });
+}
+
+function formatBackupDate(iso) {
+  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// The weekly auto-backup (autoBackup.js) runs on its own; this shows when it last ran, where
+// the file is, and anything that needs the user's attention (a failed write, or an old backup
+// file the app wasn't allowed to delete).
+function renderAutoBackupStatus(user) {
+  const statusEl = document.getElementById('auto-backup-status');
+  const info = getAutoBackupInfo(user.id);
+  const lines = [];
+  if (info && info.savedAt) {
+    lines.push(`Auto-backup: saved ${formatBackupDate(info.savedAt)} to Documents/${info.path}`);
+  } else {
+    lines.push('Auto-backup: weekly, to Documents/TVTimeClone (first one runs shortly).');
+  }
+  if (info && info.lastError) lines.push(`Last auto-backup failed: ${info.lastError}`);
+  if (info && info.undeleted && info.undeleted.length) {
+    lines.push(`Couldn't delete the older backup ${info.undeleted.map(p => `Documents/${p}`).join(', ')} - you can delete it yourself.`);
+  }
+  statusEl.textContent = lines.join(' ');
+  statusEl.hidden = false;
+}
+
+function initAutoBackupControls(user, closeMenu) {
+  if (!isNativeApp()) return;
+  renderAutoBackupStatus(user);
+
+  const button = document.getElementById('backup-now-btn');
+  button.hidden = false;
+  button.addEventListener('click', async () => {
+    closeMenu();
+    button.disabled = true;
+    await runAutoBackups({ force: true, profileIds: [user.id] });
+    renderAutoBackupStatus(user);
+    button.disabled = false;
+  });
+
+  // The page-load run (autoBackup.js) may finish after this renders - refresh once it has.
+  setTimeout(async () => {
+    await runAutoBackups();
+    renderAutoBackupStatus(user);
+  }, AUTO_BACKUP_START_DELAY_MS + 500);
+}
+
+function initNotificationToggle(closeMenu) {
+  if (!notificationsSupported()) return;
+  const button = document.getElementById('notifications-toggle-btn');
+  const render = () => {
+    button.textContent = `Episode Notifications: ${areEpisodeNotificationsEnabled() ? 'On' : 'Off'}`;
+  };
+  render();
+  button.hidden = false;
+  button.addEventListener('click', async () => {
+    closeMenu();
+    setEpisodeNotificationsEnabled(!areEpisodeNotificationsEnabled());
+    render();
+    const result = await refreshEpisodeNotifications({ force: true });
+    if (result.status === 'denied') {
+      window.alert('Notifications are blocked for this app. Allow them in Android Settings > Apps > TVTimeClone > Notifications.');
+    }
   });
 }
 
@@ -413,10 +338,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   initExportBackup(user);
   document.getElementById('import-btn').addEventListener('click', () => {
     closeMenu();
-    openImportChooser();
+    document.getElementById('import-app-input').click();
   });
-  initAppBackupImport();
-  initTvTimeImport();
+  initAppBackupImport(user);
+  initAutoBackupControls(user, closeMenu);
+  initNotificationToggle(closeMenu);
   document.getElementById('switch-account-btn').addEventListener('click', () => {
     closeMenu();
     logout();

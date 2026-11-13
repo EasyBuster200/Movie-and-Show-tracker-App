@@ -8,12 +8,14 @@
   <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
   <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
   <script type="text/javascript" src="scripts/vendor/capacitor-share.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
   <script type="text/javascript" src="scripts/standardItem.js" defer></script>
   <script type="text/javascript" src="scripts/localDb.js" defer></script>
   <script type="text/javascript" src="scripts/localApi.js" defer></script>
   <script type="text/javascript" src="scripts/profiles.js" defer></script>
   <script type="text/javascript" src="scripts/backup.js" defer></script>
-  <script type="text/javascript" src="scripts/tvtime-import.js" defer></script>
+  <script type="text/javascript" src="scripts/autoBackup.js" defer></script>
+  <script type="text/javascript" src="scripts/notifications.js" defer></script>
   <script type="text/javascript" src="scripts/auth.js" defer></script>
   <script type="text/javascript" src="scripts/media.js" defer></script>
   <script type="text/javascript" src="scripts/profile.js" defer></script>
@@ -67,7 +69,9 @@
         </button>
         <div class="profile-menu-dropdown" id="profile-menu-dropdown" hidden>
           <button type="button" id="export-backup-btn" class="profile-menu-item">Export Backup</button>
-          <button type="button" id="import-btn" class="profile-menu-item">Import</button>
+          <button type="button" id="backup-now-btn" class="profile-menu-item" hidden>Back Up Now</button>
+          <button type="button" id="notifications-toggle-btn" class="profile-menu-item" hidden>Episode Notifications: On</button>
+          <button type="button" id="import-btn" class="profile-menu-item">Import Backup</button>
           <button type="button" id="switch-account-btn" class="profile-menu-item">Switch Account</button>
           <div class="profile-menu-divider"></div>
           <button type="button" id="delete-account-btn" class="profile-menu-item profile-menu-item-danger">Delete Account</button>
@@ -79,9 +83,9 @@
       <h2 id="profile-name"></h2>
       <p id="profile-email"></p>
       <p id="export-backup-status" class="card-meta" hidden></p>
+      <p id="auto-backup-status" class="card-meta" hidden></p>
     </div>
     <input type="file" id="import-app-input" accept="application/json" hidden>
-    <input type="file" id="import-tvtime-input" accept="text/csv,text/comma-separated-values,application/csv,text/plain,.csv" multiple hidden>
 
     <div class="container">
       <h2>Stats</h2>

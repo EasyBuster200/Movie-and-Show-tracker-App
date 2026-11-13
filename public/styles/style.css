@@ -243,48 +243,6 @@ main {
   color: var(--danger-clr);
 }
 
-.import-choice-btn {
-  display: block;
-  width: 100%;
-  padding: 1em;
-  margin-bottom: 0.6em;
-  border: 1px solid var(--line-clr);
-  border-radius: 0.6em;
-  background: none;
-  color: var(--text-clr);
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .import-choice-btn:hover {
-    border-color: var(--accent-clr);
-  }
-}
-
-.import-choice-title {
-  font-weight: 600;
-  margin-bottom: 0.2em;
-}
-
-.import-choice-desc {
-  font-size: 0.85rem;
-  color: var(--secondary-text-clr);
-}
-
-.import-status-list {
-  max-height: 240px;
-  overflow-y: auto;
-  margin-bottom: 1em;
-  font-size: 0.85rem;
-  color: var(--secondary-text-clr);
-}
-
-.import-status-list p {
-  margin-bottom: 0.4em;
-}
-
 .profile-avatar {
   position: absolute;
   right: 2em;

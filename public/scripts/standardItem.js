@@ -47,3 +47,10 @@ function pickSummaryFields(source) {
 function isUnreleased(dateStr, now = new Date()) {
   return !dateStr || new Date(dateStr) > now;
 }
+
+// A Date as 'YYYY-MM-DD' in the phone's local time zone (comparable with TMDB air dates, and
+// used for auto-backup filenames).
+function localDateString(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}

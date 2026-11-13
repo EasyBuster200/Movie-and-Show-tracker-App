@@ -6,8 +6,11 @@
   <title>Who's watching?</title>
   <link rel="stylesheet" href="styles/style.css">
   <link rel="stylesheet" href="styles/profile-picker.css">
+  <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
   <script type="text/javascript" src="scripts/localDb.js" defer></script>
   <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/notifications.js" defer></script>
   <script type="text/javascript" src="scripts/backup.js" defer></script>
   <script type="text/javascript" src="scripts/profile-picker.js" defer></script>
 </head>
@@ -27,7 +30,8 @@
     <form id="profile-form" class="auth-form" hidden>
       <input type="hidden" name="editingId">
       <label>Display Name<input type="text" name="displayName" required></label>
-      <label>TMDB API Key<input type="text" name="tmdbApiKey" required placeholder="Your own free TMDB API key"></label>
+      <p id="profile-form-hint" class="profile-form-hint" hidden></p>
+      <label>TMDB API Read Access Token<input type="text" name="tmdbApiKey" required autocomplete="off" spellcheck="false" placeholder="The long token from themoviedb.org/settings/api"></label>
       <div class="profile-form-actions">
         <button type="submit" id="profile-form-submit">Create Profile</button>
         <button type="button" id="profile-form-cancel" class="secondary-btn">Cancel</button>

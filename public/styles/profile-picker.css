@@ -60,6 +60,11 @@
   text-align: center;
 }
 
+.profile-form-hint {
+  font-size: 0.85rem;
+  color: var(--secondary-text-clr);
+}
+
 .profile-picker-card {
   width: 380px;
 }

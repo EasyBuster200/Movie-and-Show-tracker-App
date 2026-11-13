@@ -1,11 +1,17 @@
 // Export/import a profile's full local data as a single JSON file, so it can be moved to a new
 // phone (or restored after an uninstall) without re-marking everything as watched/favorited.
 // Ordinary app updates already preserve IndexedDB/localStorage automatically (Android keeps app
-// data across `adb install -r`/Play Store updates) — this is only needed for device-to-device
-// migration or an explicit backup.
+// data across `adb install -r`/Play Store updates) - this is for device-to-device migration,
+// reinstalls, and autoBackup.js's weekly files.
+//
+// Backups deliberately do NOT contain the profile's TMDB API key. They end up in shared places
+// (public Documents, Drive, email), and a key in plain text there is readable by anything that
+// can read the file. A TMDB key is free and re-obtainable, so restoring asks for one instead
+// (profile-picker.js) or reuses the current profile's (profile.js). Version 1 backups, made
+// before this change, did include it - restoring still accepts those (legacyBackupApiKey).
 
 const BACKUP_STORE_NAMES = ['lists', 'list_items', 'watched_movies', 'watched_episodes', 'favorites', 'ratings'];
-const BACKUP_FORMAT_VERSION = 1;
+const BACKUP_FORMAT_VERSION = 2;
 
 async function buildBackupPayload(profile) {
   const db = await openProfileDb(profile.id);
@@ -13,18 +19,22 @@ async function buildBackupPayload(profile) {
   for (const storeName of BACKUP_STORE_NAMES) {
     data[storeName] = await dbGetAll(db, storeName);
   }
+  db.close();
   return {
     app: 'tvtimeclone',
     backupVersion: BACKUP_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
-    profile: { displayName: profile.displayName, tmdbApiKey: profile.tmdbApiKey },
+    profile: { displayName: profile.displayName },
     data,
   };
 }
 
+function profileSlug(profile) {
+  return profile.displayName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'profile';
+}
+
 function backupFilename(profile) {
-  const slug = profile.displayName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'profile';
-  return `tvtimeclone-backup-${slug}.json`;
+  return `tvtimeclone-backup-${profileSlug(profile)}.json`;
 }
 
 function downloadBackupInBrowser(json, filename) {
@@ -39,9 +49,13 @@ function downloadBackupInBrowser(json, filename) {
   URL.revokeObjectURL(url);
 }
 
+function isNativeApp() {
+  return Boolean(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
 // Packaged Android WebViews don't wire up blob `<a download>` links (no DownloadListener
 // registered), so the native build writes the file to the app's cache dir and hands it to the
-// system Share sheet instead — which also solves "get it onto a new phone" (Drive, email,
+// system Share sheet instead - which also solves "get it onto a new phone" (Drive, email,
 // Nearby Share, a Files app, whatever the user picks).
 async function shareBackupNatively(json, filename) {
   const { Filesystem, Directory, Encoding } = window.capacitorFilesystem;
@@ -66,7 +80,7 @@ async function exportBackup(profile) {
   const json = JSON.stringify(payload, null, 2);
   const filename = backupFilename(profile);
 
-  if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+  if (isNativeApp()) {
     await shareBackupNatively(json, filename);
   } else {
     downloadBackupInBrowser(json, filename);
@@ -84,10 +98,8 @@ function isValidBackupPayload(payload) {
   );
 }
 
-// Always creates a brand-new profile rather than overwriting an existing one, so a bad import
-// never clobbers data already on the device.
-async function importBackupFile(file) {
-  const text = await file.text();
+// Parses and validates a backup file's text, throwing a user-facing message if it isn't one.
+function parseBackupText(text) {
   let payload;
   try {
     payload = JSON.parse(text);
@@ -97,10 +109,26 @@ async function importBackupFile(file) {
   if (!isValidBackupPayload(payload)) {
     throw new Error("That file doesn't look like a TVTimeClone backup.");
   }
+  return payload;
+}
 
+async function readBackupFile(file) {
+  return parseBackupText(await file.text());
+}
+
+// Version 1 backups carried the key in plain text. Offered as a prefill when restoring one, so
+// an old file still restores in one step - new backups never have it.
+function legacyBackupApiKey(payload) {
+  const key = payload.profile && payload.profile.tmdbApiKey;
+  return typeof key === 'string' && key.trim() ? key.trim() : null;
+}
+
+// Always creates a brand-new profile rather than overwriting an existing one, so a bad import
+// never clobbers data already on the device.
+async function restoreBackup(payload, { displayName, tmdbApiKey }) {
   const profile = createProfile({
-    displayName: payload.profile.displayName,
-    tmdbApiKey: payload.profile.tmdbApiKey,
+    displayName: (displayName || payload.profile.displayName).trim(),
+    tmdbApiKey,
   });
 
   const db = await openProfileDb(profile.id);
@@ -109,6 +137,7 @@ async function importBackupFile(file) {
       await dbPut(db, storeName, record);
     }
   }
+  db.close();
 
   return profile;
 }

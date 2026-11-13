@@ -192,11 +192,22 @@ const TMDB_MAX_RETRIES = 2;
 const TMDB_DETAIL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const TMDB_DETAIL_PATH_RE = /^\/(movie|tv)\/(\d+)$/;
 
+// A cached show's `next_episode_to_air` goes stale the moment that episode airs - kept for the
+// full TTL, Airing Soon and the new-episode notifications (notifications.js) would keep showing
+// an already-aired episode and miss the one after it. So a show whose "next" episode is now in
+// the past counts as expired regardless of age (one refetch per aired episode).
+function isTmdbDetailCacheEntryFresh(entry, now = new Date()) {
+  if (!entry || now.getTime() - entry.fetchedAt >= TMDB_DETAIL_CACHE_TTL_MS) return false;
+  const next = entry.data && entry.data.next_episode_to_air;
+  if (next && next.air_date && next.air_date < localDateString(now)) return false;
+  return true;
+}
+
 async function readTmdbDetailCache(cacheKey) {
   try {
     const db = await getDb();
     const entry = await dbGet(db, 'tmdb_cache', cacheKey);
-    return entry && Date.now() - entry.fetchedAt < TMDB_DETAIL_CACHE_TTL_MS ? entry.data : null;
+    return isTmdbDetailCacheEntryFresh(entry) ? entry.data : null;
   } catch (error) {
     return null;
   }
@@ -281,7 +292,7 @@ async function fetchLocalMediaSummary(tmdbId, mediaType) {
 // Reads a watched_movies/favorites row's own denormalized display fields if it has them
 // (the common case now - written at POST time via standardItem.js's pickSummaryFields), with
 // no TMDB call at all. Rows written
-// before this existed, or by tvtime-import.js's bulk import (no TMDB summary data handy at
+// before this existed (or by the since-removed TV Time importer, which had no summary data at
 // that point), fall back to a live fetch and get backfilled so every later read is instant
 // too. A failed fetch's "Unknown" placeholder is deliberately NOT persisted, so it stays
 // retryable next time instead of getting stuck that way permanently.
@@ -445,7 +456,7 @@ route('POST', '/api/watched/movies/:tmdbId', async ({ tmdbId }, searchParams, ge
   // The client already has the standard item shape in hand when this fires (it's the card
   // being clicked) - storing its display fields here means the Watched Movies preview on the
   // Profile page can render straight from IndexedDB later, no TMDB round trip per item. Body
-  // is optional (e.g. tvtime-import.js's bulk import doesn't have it handy); summaryFromRowOrFetch
+  // is optional (older rows and restored backups may lack these fields); summaryFromRowOrFetch
   // below fills it in lazily for rows that arrive without it.
   const body = (await getBody()) || {};
   await dbPut(db, 'watched_movies', {

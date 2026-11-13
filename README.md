@@ -34,9 +34,11 @@ Everyone who installs it keeps their own data on their own device.
   shared), each with their own TMDB API key and completely separate storage.
 - **Backup & restore** — export a profile's full data as a file and re-import it on a new phone,
   so switching devices or reinstalling doesn't mean starting over.
-- **TV Time import** — bring your history over from a real TV Time account via its GDPR data
-  export, matching shows against TMDB and marking watched episodes exactly (not just a rough
-  guess) when the export's per-episode tracking data is included.
+- **Weekly automatic backups** — once a week each profile is saved to `Documents/TVTimeClone` on
+  the phone (one file per profile, the previous week's replaced), so a reinstall or lost data
+  is one "Import Backup" away. Backups never include your TMDB key.
+- **New-episode notifications** — a notification on the evening a tracked show's next episode
+  airs (on/off in the Profile menu).
 
 ## Why local-first
 
@@ -55,7 +57,8 @@ that intercepts the app's own API calls and serves them from IndexedDB instead o
 - [Android SDK command-line tools](https://developer.android.com/studio#command-line-tools-only)
   (platform 34, build-tools 34.0.0, platform-tools) — or the full Android Studio, which bundles
   all of this
-- A free [TMDB API key](https://www.themoviedb.org/settings/api) (you'll enter this in-app per
+- A free [TMDB API Read Access Token](https://www.themoviedb.org/settings/api) — the long token,
+  not the short "API Key" (you'll enter this in-app per
   profile, not as a build-time secret)
 
 ### Build
@@ -111,8 +114,8 @@ covered; check that in a browser as described above.
 ```
 public/          the entire app (HTML/CSS/JS), loaded into Capacitor's WebView
   scripts/       localDb.js (IndexedDB), localApi.js (fetch shim), profiles.js (local accounts),
-                 standardItem.js (shared item shape), backup.js, tvtime-import.js, plus one
-                 script per page
+                 standardItem.js (shared item shape), backup.js + autoBackup.js,
+                 notifications.js, vendor/ (Capacitor plugins), plus one script per page
   styles/        style.css (app-wide) + profile-picker.css (profile picker)
 tests/           Node test suite for the local data layer (npm test)
 android/         the Capacitor-generated native wrapper (mostly boilerplate)
