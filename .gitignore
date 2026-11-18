@@ -1,1 +1,4 @@
 node_modules/
+
+# Release APK copied here for "gh release create" (see docs/DEVELOPMENT.md)
+/Watchlog.apk
