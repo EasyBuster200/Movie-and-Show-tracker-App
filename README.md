@@ -24,8 +24,13 @@ Everyone who installs it keeps their own data on their own device.
   jump ahead.
 - **Ratings & favorites** — a 5-star (half-increment) rating widget on the detail page, and a
   heart toggle for favorites.
-- **Keep Watching / Airing Soon** — surfaces shows with new episodes since you last watched, and
-  upcoming air dates for anything you're tracking.
+- **Keep Watching / Airing Soon** — Keep Watching lists the shows you're actively watching. Shows
+  you're caught up on wait in Airing Soon until their next episode, and shows untouched for a
+  month after new episodes came out count as dropped. Tap Airing Soon for a calendar page: a
+  week strip plus every announced upcoming episode, day by day.
+- **Watched shows filters** — All / Watching / Caught up / Completed / Dropped.
+- **Stats** — tap Stats on your profile for watch time per month, top genres, top actors, your
+  rating spread and per-show progress.
 - **Recommendations** — seeded from your own most-recently-watched/listed items, ranked against
   TMDB's recommendation graph.
 - **Adult-content filtering** — pornographic titles (TMDB's own `adult` flag, not general
@@ -38,7 +43,8 @@ Everyone who installs it keeps their own data on their own device.
   the phone (one file per profile, the previous week's replaced), so a reinstall or lost data
   is one "Import Backup" away. Backups never include your TMDB key.
 - **New-episode notifications** — a notification on the evening a tracked show's next episode
-  airs (on/off in the Profile menu).
+  airs (on/off in the Profile menu). A daily background check keeps them coming even if you
+  don't open the app.
 
 ## Why local-first
 
@@ -74,18 +80,33 @@ Then either open the project in Android Studio and run it from there:
 npm run open:android
 ```
 
-...or build a debug APK from the command line:
+...or build a release APK from the command line (JDK 17):
 
 ```bash
 cd android
-./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
-The APK lands at `android/app/build/outputs/apk/debug/app-debug.apk` — debug-signed, ready to
-sideload onto any Android device (enable "Install unknown apps" for whatever you use to transfer
-it). Installing a new build over an existing install upgrades it in place and keeps all data,
-as long as it's signed with the same debug key (true for every build produced from this repo on
-one machine) — data is only lost if the app is uninstalled first.
+The APK lands at `android/app/build/outputs/apk/release/app-release.apk` — sideload it onto any
+Android device (enable "Install unknown apps" for whatever you use to transfer it). Each build's
+version number is the repo's commit count, so a newer build installs over an older one and keeps
+all data.
+
+**Signing.** Release builds are signed with a key kept *outside* the repo, configured in
+`~/.android/watchlog-release.properties` (or the file named by `WATCHLOG_SIGNING_PROPERTIES`):
+
+```properties
+storeFile=C:/Users/you/.android/watchlog-release.jks
+storePassword=...
+keyAlias=watchlog
+keyPassword=...
+```
+
+Create the keystore once with `keytool -genkeypair -v -keystore <path>.jks -alias watchlog -keyalg RSA
+-keysize 2048 -validity 10000` (keytool ships with the JDK). Without that file, release builds
+come out unsigned. **Back up the keystore and its passwords**: Android only installs an update
+signed with the same key, so losing it means uninstalling (and losing the app's data unless you
+restore a backup). For the same reason, don't install a debug build over a release-signed one.
 
 There's no bundler or build step for the web layer itself — `public/` is plain HTML/CSS/JS
 loaded directly via `<script>` tags, and Capacitor just wraps it in a WebView.

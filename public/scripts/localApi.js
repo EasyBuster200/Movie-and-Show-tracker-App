@@ -190,7 +190,9 @@ const TMDB_MAX_RETRIES = 2;
 // applied to sub-resources like /tv/{id}/season/{n} (used for new-episode detection, which
 // needs to stay fresh) or one-off calls like /search or /discover.
 const TMDB_DETAIL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const TMDB_DETAIL_PATH_RE = /^\/(movie|tv)\/(\d+)$/;
+// Also covers a title's cast lists (/credits, /aggregate_credits), which the Stats page's top
+// actors need one of per watched title and which change just as rarely.
+const TMDB_DETAIL_PATH_RE = /^\/(movie|tv)\/(\d+)(\/credits|\/aggregate_credits)?$/;
 
 // A cached show's `next_episode_to_air` goes stale the moment that episode airs - kept for the
 // full TTL, Airing Soon and the new-episode notifications (notifications.js) would keep showing
@@ -247,7 +249,7 @@ async function fetchLocalTmdbUncached(tmdbPath) {
   if (!profile || !profile.tmdbApiKey) return null;
 
   const detailMatch = tmdbPath.match(TMDB_DETAIL_PATH_RE);
-  const cacheKey = detailMatch ? `${detailMatch[1]}:${detailMatch[2]}` : null;
+  const cacheKey = detailMatch ? `${detailMatch[1]}:${detailMatch[2]}${detailMatch[3] || ''}` : null;
   if (cacheKey) {
     const cached = await readTmdbDetailCache(cacheKey);
     if (cached) return cached;
@@ -500,9 +502,66 @@ route('GET', '/api/watched/movies/details', async (params, searchParams) => {
   return jsonResponse(enriched);
 });
 
+// --- Show status: watching / caught_up / completed / dropped -----------------------------------
+//
+// - caught_up: every aired episode watched, show still running (on a break, or between
+//   episodes). Not in Keep Watching; shows up in Airing Soon once a date is announced.
+// - completed: every episode watched and TMDB marks the show Ended/Canceled.
+// - watching: has aired episodes you haven't watched, and isn't dropped.
+// - dropped: has unwatched aired episodes and nothing watched for SHOW_DROP_AFTER_MS, counted
+//   from whichever is later - your last watched episode, or the release of the oldest episode
+//   you haven't watched. So a show returning from a long break gets a fresh 30 days, and one
+//   you've stopped following leaves Keep Watching (it stays in Airing Soon/notifications).
+// - unknown: the TMDB lookup failed.
+const SHOW_DROP_AFTER_MS = 30 * 24 * 60 * 60 * 1000;
+const SHOW_ENDED_STATUSES = ['Ended', 'Canceled'];
+
+// Every aired regular episode as 'season:episode', in order, derived from the show's own
+// last_episode_to_air + per-season episode counts - no season fetches needed. Specials
+// (season 0) never count.
+function airedEpisodeKeys(show) {
+  const last = show && show.last_episode_to_air;
+  if (!last || !last.season_number) return [];
+  const keys = [];
+  (show.seasons || [])
+    .filter(s => s.season_number > 0 && s.season_number <= last.season_number)
+    .sort((a, b) => a.season_number - b.season_number)
+    .forEach(s => {
+      const count = s.season_number === last.season_number ? last.episode_number : s.episode_count;
+      for (let e = 1; e <= count; e++) keys.push(`${s.season_number}:${e}`);
+    });
+  return keys;
+}
+
+async function computeShowStatus({ showId, show, watchedRows, lastWatchedAt, now = new Date() }) {
+  if (!show) return { status: 'unknown', airedCount: null, unwatchedCount: null };
+
+  const watchedSet = new Set(watchedRows.map(r => `${r.seasonNumber}:${r.episodeNumber}`));
+  const aired = airedEpisodeKeys(show);
+  const unwatched = aired.filter(key => !watchedSet.has(key));
+  const counts = { airedCount: aired.length, unwatchedCount: unwatched.length };
+
+  if (unwatched.length === 0) {
+    return { status: SHOW_ENDED_STATUSES.includes(show.status) ? 'completed' : 'caught_up', ...counts };
+  }
+
+  const lastWatchedMs = lastWatchedAt ? Date.parse(lastWatchedAt) : 0;
+  if (now.getTime() - lastWatchedMs < SHOW_DROP_AFTER_MS) return { status: 'watching', ...counts };
+
+  // Only now is the oldest unwatched episode's air date needed - one season fetch, and only for
+  // shows that haven't been watched in 30+ days.
+  const [season, episode] = unwatched[0].split(':').map(Number);
+  const seasonData = await fetchLocalTmdb(`/tv/${showId}/season/${season}`);
+  const oldest = seasonData && (seasonData.episodes || []).find(ep => ep.episode_number === episode);
+  const releasedMs = oldest && oldest.air_date ? Date.parse(oldest.air_date) : 0;
+  const since = Math.max(lastWatchedMs, releasedMs);
+  return { status: now.getTime() - since >= SHOW_DROP_AFTER_MS ? 'dropped' : 'watching', ...counts };
+}
+
 route('GET', '/api/watched/shows', async (params, searchParams) => {
   const db = await getDb();
   const includeNew = searchParams.get('includeNewEpisodes') === 'true';
+  const includeStatus = searchParams.get('includeStatus') === 'true';
   const groups = applyLimit(await groupWatchedShows(db), searchParams);
 
   const enriched = await Promise.all(groups.map(async group => {
@@ -521,7 +580,11 @@ route('GET', '/api/watched/shows', async (params, searchParams) => {
       }));
     }
 
-    return { ...summary, watched, total, hasNewEpisodes };
+    const status = includeStatus
+      ? await computeShowStatus({ showId: group.showId, show, watchedRows: group.rows, lastWatchedAt: group.lastWatchedAt })
+      : {};
+
+    return { ...summary, watched, total, hasNewEpisodes, lastWatchedAt: group.lastWatchedAt, ...status };
   }));
 
   return jsonResponse(enriched);
@@ -596,6 +659,66 @@ route('GET', '/api/watched/shows/upcoming', async () => {
     .slice(0, UPCOMING_LIMIT);
 
   return jsonResponse(upcoming);
+});
+
+// Every announced, not-yet-aired episode of every tracked show (dropped ones included), for the
+// Airing Soon page (airing-soon.html). Starts from each show's next_episode_to_air and reads that
+// season plus any later announced seasons, so a season's whole schedule is listed - not just the
+// next episode. Today's episodes count as upcoming. Sorted by air date, then show title.
+route('GET', '/api/watched/shows/schedule', async () => {
+  const db = await getDb();
+  const groups = await groupWatchedShows(db);
+  const today = localDateString(new Date());
+
+  const perShow = await Promise.all(groups.map(async group => {
+    const show = await fetchLocalTmdb(`/tv/${group.showId}`);
+    if (!show || !show.next_episode_to_air) return [];
+    const fromSeason = show.next_episode_to_air.season_number;
+    const seasonNumbers = (show.seasons || [])
+      .map(s => s.season_number)
+      .filter(n => n >= fromSeason);
+    if (!seasonNumbers.includes(fromSeason)) seasonNumbers.push(fromSeason);
+
+    const seasons = await Promise.all(seasonNumbers.map(n => fetchLocalTmdb(`/tv/${group.showId}/season/${n}`)));
+    const summary = summaryFromTmdbData(group.showId, 'tv', show);
+    const episodes = [];
+    seasons.forEach((season, i) => {
+      ((season && season.episodes) || []).forEach(ep => {
+        if (!ep.air_date || ep.air_date < today) return;
+        episodes.push({
+          ...summary,
+          seasonNumber: seasonNumbers[i],
+          episodeNumber: ep.episode_number,
+          name: ep.name,
+          airDate: ep.air_date,
+          stillPath: ep.still_path || null,
+        });
+      });
+    });
+
+    // Fallback: TMDB sometimes lists next_episode_to_air before the season's episode list has it.
+    const next = show.next_episode_to_air;
+    const listed = episodes.some(e => e.seasonNumber === next.season_number && e.episodeNumber === next.episode_number);
+    if (!listed && next.air_date && next.air_date >= today) {
+      episodes.push({
+        ...summary,
+        seasonNumber: next.season_number,
+        episodeNumber: next.episode_number,
+        name: next.name,
+        airDate: next.air_date,
+        stillPath: next.still_path || null,
+      });
+    }
+    return episodes;
+  }));
+
+  const schedule = perShow
+    .flat()
+    .sort((a, b) => a.airDate.localeCompare(b.airDate)
+      || a.title.localeCompare(b.title)
+      || a.seasonNumber - b.seasonNumber
+      || a.episodeNumber - b.episodeNumber);
+  return jsonResponse(schedule);
 });
 
 function mediaKey(mediaType, tmdbId) {
@@ -717,6 +840,101 @@ route('GET', '/api/stats', async () => {
     averageRating: averageRating ? Math.round(averageRating * 10) / 10 : null,
     totalWatchMinutes,
   });
+});
+
+// --- Stats page (stats.html) ---------------------------------------------------------------------
+
+const STATS_MONTHS = 12;
+const STATS_TOP_GENRES = 8;
+const STATS_TOP_ACTORS = 10;
+const STATS_ACTOR_BILLING_CUTOFF = 10; // only a title's top-billed cast counts toward top actors
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function lastMonthKeys(now, count) {
+  const keys = [];
+  for (let i = count - 1; i >= 0; i--) keys.push(monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  return keys;
+}
+
+// Watch time per month (last 12 months), top genres (by number of watched titles, movies and
+// shows together), and how the profile's ratings are spread (1-10, i.e. half-stars).
+route('GET', '/api/stats/details', async () => {
+  const db = await getDb();
+  const [watchedMovies, episodes, ratings] = await Promise.all([
+    dbGetAll(db, 'watched_movies'),
+    dbGetAll(db, 'watched_episodes'),
+    dbGetAll(db, 'ratings'),
+  ]);
+
+  const showIds = [...new Set(episodes.map(ep => ep.showId))];
+  const [movies, shows] = await Promise.all([
+    Promise.all(watchedMovies.map(row => fetchLocalTmdb(`/movie/${row.tmdbId}`))),
+    Promise.all(showIds.map(id => fetchLocalTmdb(`/tv/${id}`))),
+  ]);
+  const showById = new Map(showIds.map((id, i) => [id, shows[i]]));
+
+  const months = lastMonthKeys(new Date(), STATS_MONTHS);
+  const minutesByMonth = new Map(months.map(m => [m, 0]));
+  const addMinutes = (iso, minutes) => {
+    const key = iso && monthKey(new Date(iso));
+    if (minutesByMonth.has(key)) minutesByMonth.set(key, minutesByMonth.get(key) + minutes);
+  };
+  watchedMovies.forEach((row, i) => addMinutes(row.watchedAt, (movies[i] && movies[i].runtime) || 0));
+  episodes.forEach(ep => {
+    const show = showById.get(ep.showId);
+    addMinutes(ep.watchedAt, (show && show.episode_run_time && show.episode_run_time[0]) || DEFAULT_EPISODE_RUNTIME_MINUTES);
+  });
+
+  const genreCounts = new Map();
+  [...movies, ...shows].forEach(data => {
+    ((data && data.genres) || []).forEach(g => genreCounts.set(g.name, (genreCounts.get(g.name) || 0) + 1));
+  });
+  const genres = [...genreCounts.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, STATS_TOP_GENRES);
+
+  const ratingCounts = Array.from({ length: 10 }, (_, i) => ({ rating: i + 1, count: 0 }));
+  ratings.forEach(r => { if (r.rating >= 1 && r.rating <= 10) ratingCounts[r.rating - 1].count += 1; });
+
+  return jsonResponse({
+    monthly: months.map(month => ({ month, minutes: minutesByMonth.get(month) })),
+    genres,
+    ratings: ratingCounts,
+  });
+});
+
+// Actors who appear most across watched movies and shows (top-billed cast only), counted once
+// per title. One credits lookup per title, cached like details.
+route('GET', '/api/stats/actors', async () => {
+  const db = await getDb();
+  const [watchedMovies, episodes] = await Promise.all([dbGetAll(db, 'watched_movies'), dbGetAll(db, 'watched_episodes')]);
+  const paths = [
+    ...watchedMovies.map(row => `/movie/${row.tmdbId}/credits`),
+    ...[...new Set(episodes.map(ep => ep.showId))].map(id => `/tv/${id}/aggregate_credits`),
+  ];
+  const credits = await Promise.all(paths.map(path => fetchLocalTmdb(path)));
+
+  const actors = new Map();
+  credits.forEach(data => {
+    const topBilled = ((data && data.cast) || [])
+      .filter(person => (person.order ?? Infinity) < STATS_ACTOR_BILLING_CUTOFF);
+    const seen = new Set();
+    topBilled.forEach(person => {
+      if (seen.has(person.id)) return;
+      seen.add(person.id);
+      const entry = actors.get(person.id) || { id: person.id, name: person.name, profilePath: person.profile_path || null, count: 0 };
+      entry.count += 1;
+      actors.set(person.id, entry);
+    });
+  });
+
+  return jsonResponse([...actors.values()]
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, STATS_TOP_ACTORS));
 });
 
 const SEED_COUNT = 5;

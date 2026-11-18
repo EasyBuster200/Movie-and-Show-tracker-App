@@ -1450,3 +1450,303 @@ main {
   color: var(--secondary-text-clr);
   font-size: 0.9rem;
 }
+/* A section heading that opens a page of its own (Home's Airing Soon -> airing-soon.html,
+   Profile's Stats -> stats.html): the h2 on the left, a small "Calendar ›" / "See all ›" hint
+   on the right. */
+.section-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  color: inherit;
+  text-decoration: none;
+}
+
+.section-link-more {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--secondary-text-clr);
+  white-space: nowrap;
+}
+
+.stats-grid-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* --- Airing Soon page (airing-soon.html) --- */
+
+/* Horizontally scrolling row of days; days with episodes get an accent count dot. */
+.week-strip {
+  display: flex;
+  gap: 0.5em;
+  overflow-x: auto;
+  padding: 0.5em 0 1em;
+  margin-bottom: 0.5em;
+  scrollbar-width: none;
+}
+
+.week-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.week-day {
+  flex: 0 0 auto;
+  width: 3.4em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1em;
+  padding: 0.4em 0 0.5em;
+  border: 1px solid var(--line-clr);
+  border-radius: 0.8em;
+  background-color: var(--card-clr);
+  color: var(--secondary-text-clr);
+  font: inherit;
+  cursor: pointer;
+}
+
+.week-day:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.week-day.today {
+  border-color: var(--secondary-text-clr);
+}
+
+.week-day.has-episodes {
+  color: var(--text-clr);
+}
+
+.week-day.active {
+  border-color: var(--accent-clr);
+  background-color: var(--hover-clr);
+}
+
+.week-day-month {
+  font-size: 0.65rem;
+  line-height: 1;
+  min-height: 0.65rem;
+  text-transform: uppercase;
+  color: var(--accent-clr);
+}
+
+.week-day-name {
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.week-day-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.week-day-dot {
+  min-width: 1.3em;
+  height: 1.3em;
+  border-radius: 1em;
+  font-size: 0.7rem;
+  line-height: 1.3em;
+  text-align: center;
+}
+
+.week-day.has-episodes .week-day-dot {
+  background-color: var(--accent-clr);
+  color: #fff;
+}
+
+.schedule-day {
+  margin-bottom: 1.2em;
+  /* Keep the day heading clear of the top when jumped to from the strip. */
+  scroll-margin-top: 1em;
+}
+
+.schedule-day-heading {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-clr);
+  margin-bottom: 0.5em;
+}
+
+.schedule-row,
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+  border-radius: 0.8em;
+  background-color: var(--card-clr);
+  color: inherit;
+  text-decoration: none;
+}
+
+.schedule-poster {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 69px;
+  border-radius: 0.4em;
+  object-fit: cover;
+  background-color: var(--hover-clr);
+}
+
+.schedule-text,
+.progress-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.schedule-title {
+  font-weight: 600;
+  color: var(--text-clr);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-text .skeleton-line {
+  width: 70%;
+}
+
+.schedule-text .skeleton-line.short {
+  width: 40%;
+}
+
+/* --- Stats page (stats.html) --- */
+
+.stats-note {
+  font-size: 0.85rem;
+  color: var(--secondary-text-clr);
+  margin-bottom: 0.8em;
+}
+
+/* 12 vertical bars, one per month. */
+.month-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3em;
+  height: 170px;
+}
+
+.month-bar {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25em;
+}
+
+.month-bar-value {
+  font-size: 0.6rem;
+  line-height: 1;
+  min-height: 0.6rem;
+  color: var(--secondary-text-clr);
+  white-space: nowrap;
+}
+
+.month-bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.month-bar-fill {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 0.3em 0.3em 0 0;
+  background-color: var(--accent-clr);
+}
+
+.month-bar-label {
+  font-size: 0.65rem;
+  line-height: 1;
+  color: var(--secondary-text-clr);
+}
+
+/* Horizontal bars: label, bar, value (top genres, rating spread). */
+.bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 7.5em 1fr 2.5em;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.85rem;
+}
+
+.bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  display: block;
+  height: 0.6em;
+  border-radius: 1em;
+  background-color: var(--hover-clr);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 1em;
+  background-color: var(--accent-clr);
+}
+
+.bar-value {
+  text-align: right;
+  color: var(--secondary-text-clr);
+}
+
+.progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  padding: 0.1em 0.6em;
+  border-radius: 1em;
+  font-size: 0.7rem;
+  border: 1px solid var(--line-clr);
+  color: var(--secondary-text-clr);
+}
+
+.status-pill.status-watching {
+  border-color: var(--accent-clr);
+  color: var(--text-clr);
+}
+
+.status-pill.status-completed {
+  border-color: #3fb27f;
+  color: #7ddcae;
+}
+
+.status-pill.status-dropped {
+  border-color: var(--danger-clr);
+  color: #ff8a8c;
+}
+
+.schedule-text .card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

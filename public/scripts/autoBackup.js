@@ -57,15 +57,30 @@ async function autoBackupProfile(profile, { now = new Date(), force = false } = 
 
   const { Filesystem, Directory, Encoding } = window.capacitorFilesystem;
   const payload = await buildBackupPayload(profile);
-  const path = autoBackupPath(profile, now);
-
-  await Filesystem.writeFile({
-    path,
-    data: JSON.stringify(payload, null, 2),
+  const data = JSON.stringify(payload, null, 2);
+  const write = filePath => Filesystem.writeFile({
+    path: filePath,
+    data,
     directory: Directory.Documents,
     encoding: Encoding.UTF8,
     recursive: true,
   });
+
+  // A file with today's name can belong to a previous install of the app (e.g. a backup made
+  // just before reinstalling), which Android doesn't let this install overwrite - the write fails
+  // with FILE_NOTCREATED. Fall back to a name with the time in it, so the backup still happens.
+  let path = autoBackupPath(profile, now);
+  try {
+    await write(path);
+  } catch (error) {
+    const pad = n => String(n).padStart(2, '0');
+    path = path.replace(/\.json$/, `-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`);
+    try {
+      await write(path);
+    } catch (retryError) {
+      throw error;
+    }
+  }
 
   // Only now that the new file exists: remove the previous one, plus any earlier deletes that
   // failed. A file the user already deleted by hand counts as deleted.

@@ -28,7 +28,7 @@ test('notifications are scheduled for 18:00 local on the air date, one per show'
     { tmdbId: 20, title: 'Show 20', nextEpisode: { seasonNumber: 1, episodeNumber: 3, name: 'Episode 3', airDate: '2026-11-13' } },
   ], NOW);
 
-  assert.deepEqual(built.map(n => n.id), [10, 20]);
+  assert.deepEqual(built.map(n => n.id), [await call('episodeNotificationId', 10, 2, 5), await call('episodeNotificationId', 20, 1, 3)]);
   assert.equal(built[0].title, 'Show 10');
   assert.equal(built[0].body, 'New episode today: S2E5 · Reunion');
   assert.equal(built[0].schedule.at, new Date(2026, 10, 15, 18, 0).toISOString());
@@ -47,7 +47,7 @@ test('episodes whose notification time has passed, or without an air date, are s
     { tmdbId: 3, title: 'C', nextEpisode: { seasonNumber: 1, episodeNumber: 1, airDate: null } },
     { tmdbId: 4, title: 'D', nextEpisode: { seasonNumber: 1, episodeNumber: 1, airDate: '2026-11-14' } },
   ], evening);
-  assert.deepEqual(built.map(n => n.id), [4]);
+  assert.deepEqual(built.map(n => n.extra.showId), [4]);
 });
 
 // --- refreshing against the plugin ------------------------------------------------------------
@@ -63,7 +63,7 @@ test('refresh schedules upcoming episodes and replaces anything previously sched
   const result = await app.call('refreshEpisodeNotifications', { now: NOW });
   assert.deepEqual(result, { status: 'scheduled', count: 1 });
   const pending = plain(app.notifications.state.pending);
-  assert.deepEqual(pending.map(n => n.id), [10]);
+  assert.deepEqual(pending.map(n => n.extra.showId), [10]);
   assert.equal(pending[0].smallIcon, 'ic_stat_tvtc');
 });
 
@@ -145,4 +145,48 @@ test("a cached show whose next episode has already aired is refetched, so the fo
   const upcoming = (await app.api('GET', '/api/watched/shows/upcoming')).body;
   assert.deepEqual(app.tmdbCalls, ['/tv/10'], 'only the show with a stale next episode is refetched');
   assert.deepEqual(upcoming.map(s => [s.tmdbId, s.nextEpisode.episodeNumber]).sort(), [[10, 3], [20, 2]]);
+});
+
+// --- ids shared with the native background check ----------------------------------------------
+
+test("notification ids are per episode and match Java's String.hashCode (EpisodeCheckWorker.java)", async () => {
+  const { call } = createApp({ withProfile: false });
+  // Java: "1:1:1".hashCode() = 47029343 (49*31^4 + 58*31^3 + 49*31^2 + 58*31 + 49).
+  assert.equal(await call('episodeNotificationId', 1, 1, 1), 47029343);
+  const a = await call('episodeNotificationId', 1399, 8, 6);
+  assert.ok(a >= 0 && a <= 0x7fffffff);
+  assert.notEqual(a, await call('episodeNotificationId', 1399, 8, 7));
+});
+
+test('after scheduling, the background check gets the profile key and every tracked show', async () => {
+  const app = createApp({
+    native: true,
+    tmdb: { '/tv/10': show(10, next('2026-11-15')), '/tv/20': show(20, null) },
+  });
+  await trackShows(app, [10, 20]);
+  await app.call('refreshEpisodeNotifications', { now: NOW });
+  const config = app.background.last();
+  assert.equal(config.enabled, true);
+  assert.equal(config.apiKey, 'test-key');
+  assert.equal(config.notifyHour, 18);
+  assert.equal(config.smallIcon, 'ic_stat_tvtc');
+  assert.deepEqual(config.shows.map(s => s.id).sort(), [10, 20]);
+});
+
+test('the background check is switched off when notifications are off, refused, or no profile is active', async () => {
+  const app = createApp({ native: true, tmdb: { '/tv/10': show(10, next('2026-11-15')) } });
+  await trackShows(app, [10]);
+
+  app.run('setEpisodeNotificationsEnabled(false)');
+  await app.call('refreshEpisodeNotifications', { now: NOW });
+  assert.deepEqual(app.background.last(), { enabled: false, apiKey: '', notifyHour: 18, smallIcon: 'ic_stat_tvtc', shows: [] });
+
+  app.run('setEpisodeNotificationsEnabled(true)');
+  app.notifications.state.permission = 'denied';
+  await app.call('refreshEpisodeNotifications', { now: NOW, force: true });
+  assert.equal(app.background.last().enabled, false);
+
+  app.run('clearActiveProfile()');
+  await app.call('refreshEpisodeNotifications', { now: NOW });
+  assert.equal(app.background.last().enabled, false);
 });

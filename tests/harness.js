@@ -80,10 +80,16 @@ function createApp({ tmdb = {}, withProfile = true, native = false, filesystemOp
 
   const filesystem = createFakeFilesystem(filesystemOptions);
   const notifications = createFakeLocalNotifications(notificationOptions);
+  const background = createFakeBackgroundPlugin();
   if (native) {
     context.Capacitor = { isNativePlatform: () => true };
     context.capacitorFilesystem = filesystem.plugin;
     context.capacitorLocalNotifications = notifications.plugin;
+    // The app's own native plugin (WatchlogBackgroundPlugin.java), reached the way
+    // notifications.js does it: capacitorExports.registerPlugin('WatchlogBackground').
+    context.capacitorExports = {
+      registerPlugin: name => (name === 'WatchlogBackground' ? background.plugin : null),
+    };
   }
 
   vm.createContext(context);
@@ -132,16 +138,18 @@ function createApp({ tmdb = {}, withProfile = true, native = false, filesystemOp
   }
 
   return {
-    context, run, api, call, put, getAll, tmdbCalls, tmdbRequests, resetTmdbCalls, filesystem, notifications,
+    context, run, api, call, put, getAll, tmdbCalls, tmdbRequests, resetTmdbCalls, filesystem, notifications, background,
   };
 }
 
 // In-memory stand-in for @capacitor/filesystem (only what backup.js/autoBackup.js use).
 // `undeletable` paths reject deletes like Android does for files another install created;
 // `failWrites` makes every write reject.
-function createFakeFilesystem({ undeletable = [], failWrites = false } = {}) {
+// `foreign` paths already exist but belong to another install: writing or deleting them fails,
+// like Android's FILE_NOTCREATED for a file a previous install of the app created.
+function createFakeFilesystem({ undeletable = [], failWrites = false, foreign = [] } = {}) {
   const files = new Map();
-  const state = { undeletable: new Set(undeletable), failWrites };
+  const state = { undeletable: new Set([...undeletable, ...foreign]), failWrites, foreign: new Set(foreign) };
   const key = (directory, path) => `${directory}:${path}`;
   const plugin = {
     Directory: { Documents: 'DOCUMENTS', Cache: 'CACHE' },
@@ -149,6 +157,7 @@ function createFakeFilesystem({ undeletable = [], failWrites = false } = {}) {
     Filesystem: {
       async writeFile({ path, data, directory }) {
         if (state.failWrites) throw new Error('Disk full');
+        if (state.foreign.has(path)) throw new Error('FILE_NOTCREATED');
         files.set(key(directory, path), data);
         return { uri: `file:///${directory}/${path}` };
       },
@@ -158,6 +167,7 @@ function createFakeFilesystem({ undeletable = [], failWrites = false } = {}) {
       },
     },
   };
+  foreign.forEach(path => files.set(key('DOCUMENTS', path), '{}'));
   return {
     plugin,
     state,
@@ -165,6 +175,16 @@ function createFakeFilesystem({ undeletable = [], failWrites = false } = {}) {
     documents: () => [...files.keys()].filter(k => k.startsWith('DOCUMENTS:')).map(k => k.slice('DOCUMENTS:'.length)).sort(),
     read: path => files.get(key('DOCUMENTS', path)),
     add: (path, data = '{}') => files.set(key('DOCUMENTS', path), data),
+  };
+}
+
+// Records what notifications.js tells the native daily background check (configure calls).
+function createFakeBackgroundPlugin() {
+  const state = { configs: [] };
+  return {
+    state,
+    last: () => JSON.parse(JSON.stringify(state.configs[state.configs.length - 1] || null)),
+    plugin: { async configure(options) { state.configs.push(options); } },
   };
 }
 

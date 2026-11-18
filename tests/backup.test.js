@@ -173,6 +173,14 @@ test('a failed write keeps the previous backup and records the error', async () 
   assert.equal((await app.call('getAutoBackupInfo', activeProfile(app).id)).lastError, null);
 });
 
+test("today's filename taken by a previous install's file: the backup is saved under a timed name", async () => {
+  const app = createApp({ native: true, filesystemOptions: { foreign: ['Watchlog/watchlog-test-2026-11-13.json'] } });
+  const [result] = await app.call('runAutoBackups', { now: new Date(2026, 10, 13, 9, 5, 7) });
+  assert.equal(result.status, 'saved');
+  assert.equal(result.path, 'Watchlog/watchlog-test-2026-11-13-090507.json');
+  assert.ok(JSON.parse(app.filesystem.read(result.path)).data);
+});
+
 test('every profile on the device gets its own weekly file; "Back Up Now" forces one', async () => {
   const app = createApp({ native: true });
   app.run("createProfile({ displayName: 'Second Person', tmdbApiKey: 'k2' })");

@@ -1,5 +1,35 @@
 apply plugin: 'com.android.application'
 
+// Version: versionCode is the number of commits on the current branch, so every build from a newer
+// commit installs as an update (Android refuses a lower or equal versionCode); versionName is
+// "1.<that number>". Falls back to 1 when git isn't available.
+def gitCommitCount = { ->
+    try {
+        def out = new ByteArrayOutputStream()
+        exec {
+            commandLine 'git', 'rev-list', '--count', 'HEAD'
+            standardOutput = out
+            ignoreExitValue = true
+        }
+        def count = out.toString().trim()
+        return count.isInteger() ? count.toInteger() : 1
+    } catch (ignored) {
+        return 1
+    }
+}()
+
+// Release signing: the keystore and its passwords live OUTSIDE the repo, in a properties file
+// (default ~/.android/watchlog-release.properties, or the path in the WATCHLOG_SIGNING_PROPERTIES
+// environment variable) with storeFile, storePassword, keyAlias and keyPassword. Every build that
+// gets installed must be signed with this same key, or Android refuses to update the app over the
+// existing install - so back up the keystore and its passwords. Without the file, release builds
+// come out unsigned (debug builds are unaffected).
+def signingPropsFile = file(System.getenv('WATCHLOG_SIGNING_PROPERTIES') ?: "${System.getProperty('user.home')}/.android/watchlog-release.properties")
+def signingProps = new Properties()
+if (signingPropsFile.exists()) {
+    signingPropsFile.withInputStream { signingProps.load(it) }
+}
+
 android {
     namespace "com.tvtimeclone.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +37,8 @@ android {
         applicationId "com.tvtimeclone.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode gitCommitCount
+        versionName "1.${gitCommitCount}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +46,21 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (signingProps['storeFile']) {
+            release {
+                storeFile file(signingProps['storeFile'])
+                storePassword signingProps['storePassword']
+                keyAlias signingProps['keyAlias']
+                keyPassword signingProps['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (signingProps['storeFile']) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -36,6 +79,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Daily background episode check (EpisodeCheckWorker). 2.9.x is the last line that builds
+    // against compileSdk 34.
+    implementation "androidx.work:work-runtime:2.9.1"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"

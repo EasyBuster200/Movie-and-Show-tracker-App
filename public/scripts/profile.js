@@ -13,47 +13,11 @@ function renderHeader(user) {
   document.getElementById('profile-avatar').textContent = initials;
 }
 
-function formatWatchTime(totalMinutes) {
-  const totalHours = Math.floor(totalMinutes / 60);
-  if (totalHours >= 24) {
-    const days = Math.floor(totalHours / 24);
-    const hours = totalHours % 24;
-    return `${days}D ${hours}h`;
-  }
-  const minutes = totalMinutes % 60;
-  return `${totalHours}h ${minutes}m`;
-}
-
+// The summary tiles (shared with stats.html via media.js's renderStatTiles). Tapping them opens
+// the full Stats page.
 async function loadStats() {
   const stats = await fetch('/api/stats', { credentials: 'same-origin' }).then(r => r.json());
-  const grid = document.getElementById('stats-grid');
-  grid.innerHTML = '';
-
-  const tiles = [
-    { label: 'Movies Watched', value: stats.moviesWatched },
-    { label: 'Shows Tracked', value: stats.showsTracked },
-    { label: 'Episodes Watched', value: stats.episodesWatched },
-    { label: 'Total Watch Time', value: formatWatchTime(stats.totalWatchMinutes) },
-    { label: 'Favorites', value: stats.favorites },
-    { label: 'Avg Rating Given', value: stats.averageRating != null ? `${stats.averageRating}/10` : '—' },
-  ];
-
-  tiles.forEach(tile => {
-    const tileEl = document.createElement('div');
-    tileEl.className = 'stat-tile';
-
-    const valueEl = document.createElement('div');
-    valueEl.className = 'stat-value';
-    valueEl.textContent = tile.value;
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'stat-label';
-    labelEl.textContent = tile.label;
-
-    tileEl.appendChild(valueEl);
-    tileEl.appendChild(labelEl);
-    grid.appendChild(tileEl);
-  });
+  renderStatTiles(document.getElementById('stats-grid'), stats);
 }
 
 // The Watched Shows section always costs its own TMDB round trip per visible show (it needs

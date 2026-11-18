@@ -616,3 +616,45 @@ function attachStandardActions(card, item, context, { includeSave = true, onChan
     attachWatchedButton(card.overlayActionsEl, item, context.watchedMovieIds, onChange);
   }
 }
+
+function formatWatchTime(totalMinutes) {
+  const totalHours = Math.floor(totalMinutes / 60);
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    return `${days}D ${hours}h`;
+  }
+  const minutes = totalMinutes % 60;
+  return `${totalHours}h ${minutes}m`;
+}
+
+// Summary stat tiles from GET /api/stats - the Profile page's Stats box and the top of stats.html.
+function renderStatTiles(grid, stats) {
+  grid.innerHTML = '';
+
+  const tiles = [
+    { label: 'Movies Watched', value: stats.moviesWatched },
+    { label: 'Shows Tracked', value: stats.showsTracked },
+    { label: 'Episodes Watched', value: stats.episodesWatched },
+    { label: 'Total Watch Time', value: formatWatchTime(stats.totalWatchMinutes) },
+    { label: 'Favorites', value: stats.favorites },
+    { label: 'Avg Rating Given', value: stats.averageRating != null ? `${stats.averageRating}/10` : '—' },
+  ];
+
+  tiles.forEach(tile => {
+    const tileEl = document.createElement('div');
+    tileEl.className = 'stat-tile';
+
+    const valueEl = document.createElement('div');
+    valueEl.className = 'stat-value';
+    valueEl.textContent = tile.value;
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'stat-label';
+    labelEl.textContent = tile.label;
+
+    tileEl.appendChild(valueEl);
+    tileEl.appendChild(labelEl);
+    grid.appendChild(tileEl);
+  });
+}

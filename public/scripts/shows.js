@@ -1,7 +1,7 @@
 const MEDIA_TYPE = 'tv';
 // Matches profile.js's WATCHED_PREVIEW_LIMIT - each visible card here needs a live per-show
 // TMDB lookup, so a smaller preview means less enrichment work blocking first paint. Note this
-// only caps what's *rendered*: the /api/watched/shows?includeNewEpisodes=true fetch below still
+// only caps what's *rendered*: the /api/watched/shows?includeStatus=true fetch below still
 // enriches every tracked show regardless of this constant, since it has to check each one's
 // progress/new-episode status before it can even know which ones qualify as "in progress".
 const KEEP_WATCHING_PREVIEW_LIMIT = 8;
@@ -45,7 +45,7 @@ async function loadKeepWatching() {
   emptyEl.hidden = true;
   renderSkeletonRow(container);
   try {
-    const response = await fetch('/api/watched/shows?includeNewEpisodes=true', { credentials: 'same-origin' });
+    const response = await fetch('/api/watched/shows?includeNewEpisodes=true&includeStatus=true', { credentials: 'same-origin' });
     if (!response.ok) {
       // Not logged in (or some other non-success response) — no watched shows to show,
       // not an actual failure, so no console error.
@@ -54,7 +54,9 @@ async function loadKeepWatching() {
       return;
     }
     const shows = await response.json();
-    const inProgress = shows.filter(s => s.watched > 0 && s.total != null && s.watched < s.total);
+    // Only shows with aired episodes left to watch that aren't dropped (localApi.js's
+    // computeShowStatus) - caught-up shows on a break, finished and dropped shows stay out.
+    const inProgress = shows.filter(s => s.status === 'watching');
 
     if (inProgress.length === 0) {
       container.hidden = true;
@@ -87,7 +89,7 @@ async function loadKeepWatching() {
     if (inProgress.length > KEEP_WATCHING_PREVIEW_LIMIT) {
       const moreCard = document.createElement('div');
       moreCard.className = 'more-card';
-      moreCard.innerHTML = `<a href="media-list.html?source=in-progress&type=tv" class="more-btn" aria-label="View all in-progress shows">${moreBtnContentHtml('View All')}</a>`;
+      moreCard.innerHTML = `<a href="media-list.html?source=watched&type=tv&filter=watching" class="more-btn" aria-label="View all shows you're watching">${moreBtnContentHtml('View All')}</a>`;
       container.appendChild(moreCard);
     }
   } catch (error) {
