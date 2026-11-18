@@ -1,0 +1,13 @@
+<!-- Source artwork for Watchlog's launcher icon: episodes as bars, the latest one ticked off.
+     The Android adaptive foreground (res/drawable/ic_launcher_foreground.xml) and the legacy
+     mipmap PNGs are generated from these same shapes; keep them in sync if this changes. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <rect width="108" height="108" rx="24" fill="#5e63ff"/>
+  <g transform="translate(54 54) scale(0.9) translate(-56.5 -57)">
+    <rect x="26" y="30" width="56" height="10" rx="5" fill="#fff" fill-opacity="0.45"/>
+    <rect x="26" y="49" width="56" height="10" rx="5" fill="#fff" fill-opacity="0.7"/>
+    <rect x="26" y="68" width="36" height="10" rx="5" fill="#fff"/>
+    <circle cx="76" cy="73" r="11" fill="#fff"/>
+    <path d="M71 73l4 4 7-8" stroke="#5e63ff" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

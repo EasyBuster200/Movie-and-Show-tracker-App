@@ -1,6 +1,6 @@
 {
   "appId": "com.tvtimeclone.app",
-  "appName": "TVTimeClone",
+  "appName": "Watchlog",
   "webDir": "public",
   "plugins": {
     "CapacitorHttp": {

@@ -69,7 +69,7 @@ test('parseBackupText rejects things that are not backups', async () => {
     }
   };
   assert.match(parseError('not json'), /isn't valid JSON/);
-  assert.match(parseError(JSON.stringify({ app: 'other' })), /doesn't look like a TVTimeClone backup/);
+  assert.match(parseError(JSON.stringify({ app: 'other' })), /doesn't look like a Watchlog backup/);
   assert.match(parseError(JSON.stringify({ app: 'tvtimeclone', profile: { displayName: 'X' }, data: { lists: [] } })), /doesn't look like/);
 });
 
@@ -90,22 +90,22 @@ test('auto-backup does nothing outside the Android app', async () => {
   assert.deepEqual(app.filesystem.documents(), []);
 });
 
-test('auto-backup writes a dated file to Documents/TVTimeClone, then waits a week', async () => {
+test('auto-backup writes a dated file to Documents/Watchlog, then waits a week', async () => {
   const app = createApp({ native: true });
   await seedSomeData(app);
   const day0 = new Date(2026, 10, 13, 12, 0);
 
   const [first] = await app.call('runAutoBackups', { now: day0 });
   assert.equal(first.status, 'saved');
-  assert.deepEqual(app.filesystem.documents(), ['TVTimeClone/tvtimeclone-test-2026-11-13.json']);
+  assert.deepEqual(app.filesystem.documents(), ['Watchlog/watchlog-test-2026-11-13.json']);
 
-  const saved = JSON.parse(app.filesystem.read('TVTimeClone/tvtimeclone-test-2026-11-13.json'));
+  const saved = JSON.parse(app.filesystem.read('Watchlog/watchlog-test-2026-11-13.json'));
   assert.equal(saved.data.watched_movies.length, 1);
   assert.ok(!JSON.stringify(saved).includes('test-key'));
 
   const [again] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 6 * DAY_MS) });
   assert.equal(again.status, 'skipped');
-  assert.deepEqual(app.filesystem.documents(), ['TVTimeClone/tvtimeclone-test-2026-11-13.json']);
+  assert.deepEqual(app.filesystem.documents(), ['Watchlog/watchlog-test-2026-11-13.json']);
 });
 
 test('the next weekly backup replaces the previous file (written first, then old one deleted)', async () => {
@@ -117,35 +117,35 @@ test('the next weekly backup replaces the previous file (written first, then old
   const [result] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 7 * DAY_MS) });
   assert.equal(result.status, 'saved');
   assert.deepEqual(result.undeleted, []);
-  assert.deepEqual(app.filesystem.documents(), ['TVTimeClone/tvtimeclone-test-2026-11-20.json']);
-  assert.equal(JSON.parse(app.filesystem.read('TVTimeClone/tvtimeclone-test-2026-11-20.json')).data.watched_movies.length, 1);
+  assert.deepEqual(app.filesystem.documents(), ['Watchlog/watchlog-test-2026-11-20.json']);
+  assert.equal(JSON.parse(app.filesystem.read('Watchlog/watchlog-test-2026-11-20.json')).data.watched_movies.length, 1);
 
   const info = await app.call('getAutoBackupInfo', activeProfile(app).id);
-  assert.equal(info.path, 'TVTimeClone/tvtimeclone-test-2026-11-20.json');
+  assert.equal(info.path, 'Watchlog/watchlog-test-2026-11-20.json');
   assert.equal(info.savedAt, new Date(day0.getTime() + 7 * DAY_MS).toISOString());
 });
 
 test('a previous backup that cannot be deleted is kept, reported, and retried next time', async () => {
-  const app = createApp({ native: true, filesystemOptions: { undeletable: ['TVTimeClone/tvtimeclone-test-2026-11-13.json'] } });
+  const app = createApp({ native: true, filesystemOptions: { undeletable: ['Watchlog/watchlog-test-2026-11-13.json'] } });
   const day0 = new Date(2026, 10, 13, 12, 0);
   await app.call('runAutoBackups', { now: day0 });
 
   const [second] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 7 * DAY_MS) });
-  assert.deepEqual(second.undeleted, ['TVTimeClone/tvtimeclone-test-2026-11-13.json']);
+  assert.deepEqual(second.undeleted, ['Watchlog/watchlog-test-2026-11-13.json']);
   assert.equal(app.filesystem.documents().length, 2);
 
   // Next week the old file becomes deletable again: both older files go, only the newest stays.
   app.filesystem.state.undeletable.clear();
   const [third] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 14 * DAY_MS) });
   assert.deepEqual(third.undeleted, []);
-  assert.deepEqual(app.filesystem.documents(), ['TVTimeClone/tvtimeclone-test-2026-11-27.json']);
+  assert.deepEqual(app.filesystem.documents(), ['Watchlog/watchlog-test-2026-11-27.json']);
 });
 
 test('a previous backup the user already deleted by hand is not an error', async () => {
   const app = createApp({ native: true });
   const day0 = new Date(2026, 10, 13, 12, 0);
   await app.call('runAutoBackups', { now: day0 });
-  await app.filesystem.plugin.Filesystem.deleteFile({ path: 'TVTimeClone/tvtimeclone-test-2026-11-13.json', directory: 'DOCUMENTS' });
+  await app.filesystem.plugin.Filesystem.deleteFile({ path: 'Watchlog/watchlog-test-2026-11-13.json', directory: 'DOCUMENTS' });
 
   const [result] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 7 * DAY_MS) });
   assert.equal(result.status, 'saved');
@@ -160,11 +160,11 @@ test('a failed write keeps the previous backup and records the error', async () 
   app.filesystem.state.failWrites = true;
   const [result] = await app.call('runAutoBackups', { now: new Date(day0.getTime() + 7 * DAY_MS) });
   assert.equal(result.status, 'failed');
-  assert.deepEqual(app.filesystem.documents(), ['TVTimeClone/tvtimeclone-test-2026-11-13.json']);
+  assert.deepEqual(app.filesystem.documents(), ['Watchlog/watchlog-test-2026-11-13.json']);
 
   const info = await app.call('getAutoBackupInfo', activeProfile(app).id);
   assert.equal(info.lastError, 'Disk full');
-  assert.equal(info.path, 'TVTimeClone/tvtimeclone-test-2026-11-13.json', 'still points at the surviving backup');
+  assert.equal(info.path, 'Watchlog/watchlog-test-2026-11-13.json', 'still points at the surviving backup');
 
   // Still due, so the next page load tries again - and clears the error once it works.
   app.filesystem.state.failWrites = false;
@@ -181,16 +181,16 @@ test('every profile on the device gets its own weekly file; "Back Up Now" forces
   const results = await app.call('runAutoBackups', { now: day0 });
   assert.deepEqual(results.map(r => r.status), ['saved', 'saved']);
   assert.deepEqual(app.filesystem.documents(), [
-    'TVTimeClone/tvtimeclone-second-person-2026-11-13.json',
-    'TVTimeClone/tvtimeclone-test-2026-11-13.json',
+    'Watchlog/watchlog-second-person-2026-11-13.json',
+    'Watchlog/watchlog-test-2026-11-13.json',
   ]);
 
   const later = new Date(day0.getTime() + 2 * DAY_MS);
   const forced = await app.call('runAutoBackups', { now: later, force: true, profileIds: [activeProfile(app).id] });
   assert.deepEqual(forced.map(r => r.status), ['saved']);
   assert.deepEqual(app.filesystem.documents(), [
-    'TVTimeClone/tvtimeclone-second-person-2026-11-13.json',
-    'TVTimeClone/tvtimeclone-test-2026-11-15.json',
+    'Watchlog/watchlog-second-person-2026-11-13.json',
+    'Watchlog/watchlog-test-2026-11-15.json',
   ]);
 });
 

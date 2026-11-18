@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Watchlog adaptive-icon foreground (source: docs/icons/watchlog-launcher.svg). Scaled to 0.78
+     and centred so every corner stays inside the 66dp safe zone that any launcher mask keeps. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:translateX="9.93"
+        android:translateY="9.54"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.45"
+            android:pathData="M31,30h46a5,5 0 0 1 0,10h-46a5,5 0 0 1 0,-10z" />
+        <path android:fillColor="#FFFFFF" android:fillAlpha="0.7"
+            android:pathData="M31,49h46a5,5 0 0 1 0,10h-46a5,5 0 0 1 0,-10z" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M31,68h26a5,5 0 0 1 0,10h-26a5,5 0 0 1 0,-10z" />
+        <path android:fillColor="#FFFFFF"
+            android:pathData="M76,62a11,11 0 1 1 0,22a11,11 0 1 1 0,-22z" />
+        <path android:strokeColor="#5E63FF" android:strokeWidth="3.5"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M71,73l4,4l7,-8" />
+    </group>
+</vector>

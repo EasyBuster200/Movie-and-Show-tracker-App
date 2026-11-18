@@ -245,7 +245,7 @@ function renderAutoBackupStatus(user) {
   if (info && info.savedAt) {
     lines.push(`Auto-backup: saved ${formatBackupDate(info.savedAt)} to Documents/${info.path}`);
   } else {
-    lines.push('Auto-backup: weekly, to Documents/TVTimeClone (first one runs shortly).');
+    lines.push('Auto-backup: weekly, to Documents/Watchlog (first one runs shortly).');
   }
   if (info && info.lastError) lines.push(`Last auto-backup failed: ${info.lastError}`);
   if (info && info.undeleted && info.undeleted.length) {
@@ -290,7 +290,7 @@ function initNotificationToggle(closeMenu) {
     render();
     const result = await refreshEpisodeNotifications({ force: true });
     if (result.status === 'denied') {
-      window.alert('Notifications are blocked for this app. Allow them in Android Settings > Apps > TVTimeClone > Notifications.');
+      window.alert('Notifications are blocked for this app. Allow them in Android Settings > Apps > Watchlog > Notifications.');
     }
   });
 }

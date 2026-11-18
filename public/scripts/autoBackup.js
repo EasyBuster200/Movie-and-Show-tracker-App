@@ -1,6 +1,6 @@
 // Weekly automatic backups (Android app only). Once a week, per profile on this device, the
 // same JSON file "Export Backup" produces (backup.js - no TMDB key in it) is written to the
-// phone's public Documents/TVTimeClone folder. That folder survives uninstalling the app,
+// phone's public Documents/Watchlog folder. That folder survives uninstalling the app,
 // unlike IndexedDB, which is the whole point.
 //
 // Exactly one auto-backup per profile is kept: the new file is written FIRST and only then is
@@ -15,7 +15,7 @@
 // AUTO_BACKUP_STATE_KEY: { [profileId]: { path, savedAt, undeleted: [paths], lastError } }.
 
 const AUTO_BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
-const AUTO_BACKUP_DIR = 'TVTimeClone';
+const AUTO_BACKUP_DIR = 'Watchlog';
 const AUTO_BACKUP_STATE_KEY = 'tvtc_auto_backup';
 const AUTO_BACKUP_START_DELAY_MS = 3000;
 
@@ -41,7 +41,7 @@ function isAutoBackupDue(entry, now = new Date()) {
 }
 
 function autoBackupPath(profile, now = new Date()) {
-  return `${AUTO_BACKUP_DIR}/tvtimeclone-${profileSlug(profile)}-${localDateString(now)}.json`;
+  return `${AUTO_BACKUP_DIR}/watchlog-${profileSlug(profile)}-${localDateString(now)}.json`;
 }
 
 function isMissingFileError(error) {

@@ -1,6 +1,6 @@
-# TVTimeClone
+# Watchlog
 
-A TV Time–style movie/show tracker: browse trending content, save it to lists, track what
+A TV Time–style movie/show tracker (formerly "TVTimeClone"): browse trending content, save it to lists, track what
 you've watched (per-episode for shows), rate things, and mark favorites. Ships as a fully
 local, offline-first **Android app** — there's no server, no accounts, and no shared backend.
 Everyone who installs it keeps their own data on their own device.
@@ -34,7 +34,7 @@ Everyone who installs it keeps their own data on their own device.
   shared), each with their own TMDB API key and completely separate storage.
 - **Backup & restore** — export a profile's full data as a file and re-import it on a new phone,
   so switching devices or reinstalling doesn't mean starting over.
-- **Weekly automatic backups** — once a week each profile is saved to `Documents/TVTimeClone` on
+- **Weekly automatic backups** — once a week each profile is saved to `Documents/Watchlog` on
   the phone (one file per profile, the previous week's replaced), so a reinstall or lost data
   is one "Import Backup" away. Backups never include your TMDB key.
 - **New-episode notifications** — a notification on the evening a tracked show's next episode
@@ -119,7 +119,8 @@ public/          the entire app (HTML/CSS/JS), loaded into Capacitor's WebView
   styles/        style.css (app-wide) + profile-picker.css (profile picker)
 tests/           Node test suite for the local data layer (npm test)
 android/         the Capacitor-generated native wrapper (mostly boilerplate)
-docs/icons/      source Material Symbols SVGs, copy-pasted as reference for inline <svg> icons
+docs/icons/      source Material Symbols SVGs (reference for inline <svg> icons) and
+                 watchlog-launcher.svg, the app icon artwork
 ```
 
 The original Express/SQLite backend isn't part of this repo's working tree — it lives in this

@@ -21,6 +21,8 @@ async function buildBackupPayload(profile) {
   }
   db.close();
   return {
+    // Format id, not the display name - kept from when the app was called TVTimeClone so every
+    // existing backup file stays importable. Don't change it.
     app: 'tvtimeclone',
     backupVersion: BACKUP_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -34,7 +36,7 @@ function profileSlug(profile) {
 }
 
 function backupFilename(profile) {
-  return `tvtimeclone-backup-${profileSlug(profile)}.json`;
+  return `watchlog-backup-${profileSlug(profile)}.json`;
 }
 
 function downloadBackupInBrowser(json, filename) {
@@ -69,7 +71,7 @@ async function shareBackupNatively(json, filename) {
   });
 
   await Share.share({
-    title: 'TVTimeClone Backup',
+    title: 'Watchlog Backup',
     dialogTitle: 'Save or send your backup file',
     url: written.uri,
   });
@@ -107,7 +109,7 @@ function parseBackupText(text) {
     throw new Error("That file isn't valid JSON.");
   }
   if (!isValidBackupPayload(payload)) {
-    throw new Error("That file doesn't look like a TVTimeClone backup.");
+    throw new Error("That file doesn't look like a Watchlog backup.");
   }
   return payload;
 }
