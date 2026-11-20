@@ -26,8 +26,8 @@ ideas:
 </p>
 
 <p align="center">
-  <a href="https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases/latest/download/Watchlog.apk"><b>⬇ Download the latest Watchlog.apk</b></a>
-  · <a href="https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases">All versions</a>
+  <a href="https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases/latest/download/Watchlog.apk"><b>⬇ Download the latest Watchlog.apk</b></a>
+  · <a href="https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases">All versions</a>
 </p>
 
 ---
@@ -104,7 +104,7 @@ need it when you create your profile, and it's stored only on your phone.
    details. For example:
    - Type of use: **Personal**
    - Application name: **Watchlog**
-   - Application URL: `https://github.com/EasyBuster200/Movie-and-Show-tracker-App`
+   - Application URL: `https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker`
    - Application summary: *"Personal movie and TV tracker app on my phone."*
 5. **Copy your token.** Back on the [API settings page](https://www.themoviedb.org/settings/api)
    you'll see two codes. You need the long one called **API Read Access Token** (it starts with
@@ -117,7 +117,7 @@ need it when you create your profile, and it's stored only on your phone.
 ### 2. Install the app
 
 1. **On your Android phone**, open this page and tap
-   **[Download the latest Watchlog.apk](https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases/latest/download/Watchlog.apk)**.
+   **[Download the latest Watchlog.apk](https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases/latest/download/Watchlog.apk)**.
    (Your browser may warn that the file could be harmful. That's a standard warning for any app
    that doesn't come from the Play Store; tap **Download anyway**.)
 2. **Open the downloaded file**, from the download notification or from your **Files** /
@@ -290,11 +290,11 @@ the same token.)
 ## Updating the app
 
 When there's a new version, download the latest
-**[Watchlog.apk](https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases/latest/download/Watchlog.apk)**
+**[Watchlog.apk](https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases/latest/download/Watchlog.apk)**
 and install it the same way. It installs over the old version and **keeps all your data**. There's
 no need to uninstall first. (Uninstalling deletes your data, so only do that after making a
 backup.) You can see what changed in each version on the
-[releases page](https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases), and which
+[releases page](https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases), and which
 version you have at the bottom of Settings.
 
 ## Privacy
@@ -332,7 +332,7 @@ changing it keep the language they were saved in.
 page (it was signed differently). Make a backup, uninstall, install the version from here, and
 restore the backup.
 
-**Something else?** [Open an issue](https://github.com/EasyBuster200/Movie-and-Show-tracker-App/issues)
+**Something else?** [Open an issue](https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/issues)
 on GitHub.
 
 ## For developers

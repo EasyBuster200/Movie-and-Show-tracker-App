@@ -124,7 +124,7 @@ Page and UI code isn't covered by tests; check it in a browser.
 ## Publishing a release
 
 The README's download link points at
-`https://github.com/EasyBuster200/Movie-and-Show-tracker-App/releases/latest/download/Watchlog.apk`,
+`https://github.com/EasyBuster200/Watchlog-Movie-and-Show-tracker/releases/latest/download/Watchlog.apk`,
 so every release must attach the APK under exactly the name **`Watchlog.apk`**.
 
 1. Commit and push everything (the version number comes from the commit count).
