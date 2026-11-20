@@ -1,0 +1,199 @@
+/* TV Tracker — generated from tokens.json */
+:root, [data-theme="dark"] {
+  --bg-page: #0d0e13; /* App background behind every screen. */
+  --bg-surface: #14151c; /* Bottom navigation bar and sticky headers. */
+  --bg-card: #1b1c26; /* Cards: episode cards, stat tiles, season rows, search field. */
+  --bg-raised: #252635; /* Hover and pressed state of cards and rows; poster placeholder. */
+  --border-subtle: #2a2c3b; /* 1px outline on cards, rows and the search field. */
+  --border-strong: #5a5d75; /* Focused or hovered outlines (3:1 on bg-card). */
+  --text-primary: #f3f3f7; /* Titles and body text on bg-page and bg-card. */
+  --text-secondary: #a6a8bb; /* Meta lines, synopses, labels on bg-page and bg-card (7:1). */
+  --text-muted: #8b8ea4; /* Captions and inactive nav icons; 4.9:1 on bg-card, small text OK. */
+  --accent: var(--burgundy); /* Fills: primary buttons, selected chips. For icons and bars drawn on the page use accent-mark. Points at the active accent palette (burgundy); switch palettes by repointing the accent tokens. */
+  --accent-hover: var(--burgundy-hover); /* Primary button and chip hover. Points at the active accent palette (burgundy); switch palettes by repointing the accent tokens. */
+  --accent-text: var(--burgundy-text); /* Accent as text: stat values, links, 'Show more', counts, card toggles. Points at the active accent palette (burgundy); switch palettes by repointing the accent tokens. */
+  --accent-subtle: var(--burgundy-subtle); /* Tinted ground for selected rows and the completed season row. Points at the active accent palette (burgundy); switch palettes by repointing the accent tokens. */
+  --on-accent: var(--burgundy-on); /* Text and icons on accent fills (13:1 white on burgundy). Points at the active accent palette (burgundy); switch palettes by repointing the accent tokens. */
+  --accent-mark: var(--burgundy-mark); /* Accent for marks drawn straight on the page: active nav icon, progress fill, chart bars. Points at the active palette's -mark tone. */
+  --rating: #f5c451; /* Star rating glyph only. */
+  --favorite: #ff4d6d; /* Not used on cards: poster toggles, the heart included, fill in accent-text. Kept for a future favourites-only accent; leave unused unless the design changes. */
+  --success: #3ecf8e; /* Fully-watched check marks and 'Up to date' state. */
+  --danger: #ff6b70; /* Destructive actions (remove from list) and errors. */
+  --scrim: rgba(13,14,19,0.72); /* Round backing behind icons that sit on poster art. */
+  --indigo: #5b5cf0; /* Indigo palette, fill: primary buttons, selected chips, active nav, chart bars. Calm, techy. The default. */
+  --indigo-hover: #6f71ff; /* Indigo palette, hover of fills. */
+  --indigo-text: #9597ff; /* Indigo palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --indigo-subtle: #24254a; /* Indigo palette, tinted ground: selected rows, icon tiles. */
+  --indigo-on: #ffffff; /* Indigo palette, text and icons on the fill. */
+  --ocean: #2563eb; /* Ocean palette, fill: primary buttons, selected chips, active nav, chart bars. Classic streaming blue. */
+  --ocean-hover: #3b76f6; /* Ocean palette, hover of fills. */
+  --ocean-text: #7aa7ff; /* Ocean palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --ocean-subtle: #1a2a4d; /* Ocean palette, tinted ground: selected rows, icon tiles. */
+  --ocean-on: #ffffff; /* Ocean palette, text and icons on the fill. */
+  --teal: #14b8a6; /* Teal palette, fill: primary buttons, selected chips, active nav, chart bars. Fresh; pops most on dark. */
+  --teal-hover: #2dd4bf; /* Teal palette, hover of fills. */
+  --teal-text: #5eead4; /* Teal palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --teal-subtle: #163a3a; /* Teal palette, tinted ground: selected rows, icon tiles. */
+  --teal-on: #08201d; /* Teal palette, text and icons on the fill. */
+  --coral: #f26b5b; /* Coral palette, fill: primary buttons, selected chips, active nav, chart bars. Warm, cinema-lobby feel. */
+  --coral-hover: #ff8070; /* Coral palette, hover of fills. */
+  --coral-text: #ff9d90; /* Coral palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --coral-subtle: #43231f; /* Coral palette, tinted ground: selected rows, icon tiles. */
+  --coral-on: #2a0d09; /* Coral palette, text and icons on the fill. */
+  --magenta: #c2338d; /* Magenta palette, fill: primary buttons, selected chips, active nav, chart bars. Bold, playful. */
+  --magenta-hover: #d6409f; /* Magenta palette, hover of fills. */
+  --magenta-text: #f28cc9; /* Magenta palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --magenta-subtle: #3f1d33; /* Magenta palette, tinted ground: selected rows, icon tiles. */
+  --magenta-on: #ffffff; /* Magenta palette, text and icons on the fill. */
+  --amber: #f59e0b; /* Amber palette, fill: primary buttons, selected chips, active nav, chart bars. Sunny; sits close to the rating gold. */
+  --amber-hover: #fbb13c; /* Amber palette, hover of fills. */
+  --amber-text: #fcc560; /* Amber palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --amber-subtle: #3d2c0d; /* Amber palette, tinted ground: selected rows, icon tiles. */
+  --amber-on: #1f1503; /* Amber palette, text and icons on the fill. */
+  --burgundy: #660033; /* Burgundy palette, fill: primary buttons, selected chips, active nav, chart bars. Brand burgundy rgb(102, 0, 51). White text on it is 13:1. On dark it is low-contrast (about 1.5:1 on bg-page), so icons and bars in this colour read faintly there; text uses burgundy-text. */
+  --burgundy-hover: #7a003d; /* Burgundy palette, hover of fills. */
+  --burgundy-text: #d97aa9; /* Burgundy palette, as text and filled icons: links, stat values, card toggles (4.5:1+ on cards in both themes). */
+  --burgundy-subtle: #3a1229; /* Burgundy palette, tinted ground: selected rows, icon tiles. */
+  --burgundy-on: #ffffff; /* Burgundy palette, text and icons on the fill. */
+  --indigo-mark: #5b5cf0; /* Indigo palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --ocean-mark: #2563eb; /* Ocean palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --teal-mark: #14b8a6; /* Teal palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --coral-mark: #f26b5b; /* Coral palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --magenta-mark: #c2338d; /* Magenta palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --amber-mark: #f59e0b; /* Amber palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. Same as the fill. */
+  --burgundy-mark: #de4a6f; /* Burgundy palette, marks drawn straight on the page: active nav icon, progress bars, chart bars. On dark this is a brighter raspberry (4.9:1 on bg-page) because #660033 itself reads faintly there; fills keep #660033. */
+  --shadow-poster: 0 8px 24px rgba(0,0,0,0.45); /* Posters lifted off the page. */
+}
+[data-theme="light"] {
+  --bg-page: #f5f6fa;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-raised: #eceef4;
+  --border-subtle: #e2e4ec;
+  --border-strong: #9a9db0;
+  --text-primary: #14151c;
+  --text-secondary: #555869;
+  --text-muted: #646778;
+  --accent: var(--burgundy);
+  --accent-hover: var(--burgundy-hover);
+  --accent-text: var(--burgundy-text);
+  --accent-subtle: var(--burgundy-subtle);
+  --on-accent: var(--burgundy-on);
+  --accent-mark: var(--burgundy-mark);
+  --rating: #b7791f;
+  --favorite: #c8243f;
+  --success: #0c7a54;
+  --danger: #c8243f;
+  --scrim: rgba(255,255,255,0.88);
+  --indigo: #5b5cf0;
+  --indigo-hover: #4b4ce0;
+  --indigo-text: #4a4bd9;
+  --indigo-subtle: #ecebff;
+  --indigo-on: #ffffff;
+  --ocean: #2563eb;
+  --ocean-hover: #1d4fd8;
+  --ocean-text: #1d4ed8;
+  --ocean-subtle: #e5eeff;
+  --ocean-on: #ffffff;
+  --teal: #0b7c70;
+  --teal-hover: #096b61;
+  --teal-text: #0b7469;
+  --teal-subtle: #dcf3ef;
+  --teal-on: #ffffff;
+  --coral: #c9402f;
+  --coral-hover: #b33828;
+  --coral-text: #c0392b;
+  --coral-subtle: #fde8e5;
+  --coral-on: #ffffff;
+  --magenta: #c2338d;
+  --magenta-hover: #a92a7b;
+  --magenta-text: #ad2b7e;
+  --magenta-subtle: #fbe5f2;
+  --magenta-on: #ffffff;
+  --amber: #f59e0b;
+  --amber-hover: #e08e06;
+  --amber-text: #a85a05;
+  --amber-subtle: #fef1d6;
+  --amber-on: #1f1503;
+  --burgundy: #660033;
+  --burgundy-hover: #4d0026;
+  --burgundy-text: #660033;
+  --burgundy-subtle: #f7e3ee;
+  --burgundy-on: #ffffff;
+  --indigo-mark: #5b5cf0;
+  --ocean-mark: #2563eb;
+  --teal-mark: #0b7c70;
+  --coral-mark: #c9402f;
+  --magenta-mark: #c2338d;
+  --amber-mark: #f59e0b;
+  --burgundy-mark: #660033;
+  --shadow-poster: 0 6px 18px rgba(20,21,28,0.14);
+}
+:root {
+  --space-1: 4px; /* Icon to label, meta line gaps. */
+  --space-2: 8px; /* Gap between rows and between grid tiles. */
+  --space-3: 12px; /* Card padding, gap between posters in a carousel. */
+  --space-4: 16px; /* Screen side padding. */
+  --space-6: 24px; /* Gap between sections. */
+  --radius-sm: 6px; /* Badges, small icon chips. */
+  --radius-md: 10px; /* Cards, rows, posters, search field, buttons. */
+  --radius-lg: 14px; /* Episode cards and sheets. */
+  --radius-pill: 999px; /* Round icon buttons, progress bars. */
+  --font-sans: Poppins, system-ui, -apple-system, Segoe UI, sans-serif;
+  --text-screen-title: 600 26px/32px var(--font-sans); /* One per screen: Stats, show title on detail. */
+  --text-section-title: 600 20px/28px var(--font-sans); /* Section headers: Trending Movies, Cast, Episodes. */
+  --text-stat-value: 600 24px/30px var(--font-sans); /* Big number in a stat tile, in accent-text. */
+  --text-card-title: 600 15px/22px var(--font-sans); /* Poster titles, episode titles, row labels. */
+  --text-body: 400 14px/21px var(--font-sans); /* Synopses and paragraphs. */
+  --text-meta: 400 12px/18px var(--font-sans); /* Year, rating, runtime, '4/9 watched' counts. */
+  --text-label: 500 11px/14px var(--font-sans); /* Stat tile captions and nav labels. */
+}
+.screen-title {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.section-title {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.stat-value {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.card-title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}

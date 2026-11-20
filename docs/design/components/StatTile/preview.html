@@ -1,0 +1,18 @@
+<!-- @dsCard group="Data" height=120 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<style>body{margin:0;background:var(--bg-page);font-family:var(--font-sans);color:var(--text-primary)}</style>
+</head>
+<body>
+<div id="root" class="tt-root" style="padding:16px"></div>
+<script>
+var h = React.createElement, T = window.TVTracker;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2, minmax(0, 1fr))',gap:8,maxWidth:360}},
+  h(T.StatTile,{value:'218',label:'Episodes watched'}),
+  h(T.StatTile,{value:'5D 14h',label:'Total watch time'})));
+</script>
+</body>
+</html>

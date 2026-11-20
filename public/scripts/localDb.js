@@ -7,7 +7,7 @@
 // database *is* one profile's data), with JS-camelCase field names matching the rest of the app's
 // existing "standard item shape" conventions.
 
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function promisifyRequest(request) {
   return new Promise((resolve, reject) => {
@@ -41,7 +41,6 @@ function openProfileDb(profileId) {
         const favorites = db.createObjectStore('favorites', { keyPath: 'key' });
         favorites.createIndex('mediaType', 'mediaType');
 
-        db.createObjectStore('ratings', { keyPath: 'key' });
       }
 
       // v2: a persistent cache of raw TMDB /movie/{id} and /tv/{id} responses (key:
@@ -50,6 +49,12 @@ function openProfileDb(profileId) {
       // the TMDB_DETAIL_CACHE_* comment in localApi.js for why this exists.
       if (event.oldVersion < 2) {
         db.createObjectStore('tmdb_cache', { keyPath: 'key' });
+      }
+
+      // v3: ratings were removed from the app, and the ratings people had given deleted with
+      // them (decided with the user).
+      if (db.objectStoreNames.contains('ratings')) {
+        db.deleteObjectStore('ratings');
       }
     };
 

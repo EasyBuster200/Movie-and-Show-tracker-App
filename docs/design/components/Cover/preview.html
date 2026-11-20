@@ -1,0 +1,39 @@
+<!-- @dsCard height=300 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap">
+<style>
+body{margin:0;background:var(--bg-page)}
+.cover{position:relative;width:960px;height:300px;overflow:hidden;background:var(--bg-page);font-family:var(--font-sans)}
+.name{position:absolute;left:40px;bottom:64px;max-width:440px;margin:0;font-size:96px;line-height:.95;font-weight:600;color:var(--text-primary);letter-spacing:-0.01em}
+.tag{position:absolute;left:40px;bottom:32px;max-width:440px;margin:0;font-size:14px;color:var(--text-secondary)}
+svg{position:absolute;left:480px;top:0}
+.accent{fill:var(--accent)}.accent-text{fill:var(--accent-text)}.rating{fill:var(--rating)}.raised{fill:var(--bg-raised)}.card{fill:var(--bg-card)}
+.lg{rx:var(--radius-lg)}.md{rx:var(--radius-md)}
+</style>
+</head>
+<body>
+<div class="cover">
+<!--
+blocks: accent 160×300 slab, accent-text 136×136, rating disc 56, bg-raised 132×68 band
+arrangement: one tall slab with satellites, the band bleeding off the right edge
+pattern: literal motif, a carousel of 2:3 poster tiles (64×96) — the app is poster-first, so its shape is the poster
+steps & radii: gap space-3 (12px), offsets space-6 (24px); radius-lg on blocks, radius-md on posters, radius-pill disc
+-->
+<svg width="480" height="300" viewBox="0 0 480 300" aria-hidden="true">
+  <rect class="accent lg" x="24" y="-14" width="160" height="328"></rect>
+  <rect class="accent-text lg" x="196" y="24" width="136" height="136"></rect>
+  <circle class="rating" cx="372" cy="52" r="28"></circle>
+  <rect class="raised lg" x="344" y="92" width="150" height="68"></rect>
+  <rect class="raised md" x="196" y="180" width="64" height="96"></rect>
+  <rect class="accent md" x="272" y="180" width="64" height="96"></rect>
+  <rect class="raised md" x="348" y="180" width="64" height="96"></rect>
+  <rect class="raised md" x="424" y="180" width="64" height="96"></rect>
+</svg>
+<h1 class="name">TV<br>Tracker</h1>
+<p class="tag">Dark, poster-first, one indigo accent.</p>
+</div>
+</body>
+</html>

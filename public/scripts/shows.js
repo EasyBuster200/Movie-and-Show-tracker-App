@@ -1,216 +1,64 @@
+// Shows: Popular (biased to the user's region), Keep Watching, Recommended, then Browse All.
 const MEDIA_TYPE = 'tv';
-// Matches profile.js's WATCHED_PREVIEW_LIMIT - each visible card here needs a live per-show
-// TMDB lookup, so a smaller preview means less enrichment work blocking first paint. Note this
-// only caps what's *rendered*: the /api/watched/shows?includeStatus=true fetch below still
-// enriches every tracked show regardless of this constant, since it has to check each one's
-// progress/new-episode status before it can even know which ones qualify as "in progress".
+// Keep Watching only renders this many, but it has to check every tracked show's status first
+// to know which ones are in progress.
 const KEEP_WATCHING_PREVIEW_LIMIT = 8;
 
-const selectedGenreIds = new Set();
-let currentPage = 1;
-let context = null;
-let watchedShowIds = new Set();
-
-async function fetchWatchedShowIds() {
-  const response = await fetch('/api/watched/shows', { credentials: 'same-origin' });
-  if (!response.ok) return new Set();
-  const shows = await response.json();
-  return new Set(shows.map(s => s.tmdbId));
-}
-
-// `baseUrl` must not already carry a `page` param - this appends its own per page fetched.
-async function loadPaginatedRow(baseUrl, containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = '';
-
-  const loadNextPage = attachLoadMoreRow(
-    container,
-    page => fetch(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${page}`, { credentials: 'same-origin' })
-      .then(r => r.json()),
-    raw => {
-      const item = toStandardItem(raw, MEDIA_TYPE);
-      const card = buildCard(item);
-      attachStandardActions(card, item, context);
-      return card;
-    }
-  );
-  await loadNextPage();
-}
-
-async function loadKeepWatching() {
-  const container = document.getElementById('keep-watching');
-  const emptyEl = document.getElementById('keep-watching-empty');
-  container.hidden = false;
-  emptyEl.hidden = true;
-  renderSkeletonRow(container);
-  try {
-    const response = await fetch('/api/watched/shows?includeNewEpisodes=true&includeStatus=true', { credentials: 'same-origin' });
-    if (!response.ok) {
-      // Not logged in (or some other non-success response) — no watched shows to show,
-      // not an actual failure, so no console error.
-      container.hidden = true;
-      emptyEl.hidden = false;
-      return;
-    }
-    const shows = await response.json();
-    // Only shows with aired episodes left to watch that aren't dropped (localApi.js's
-    // computeShowStatus) - caught-up shows on a break, finished and dropped shows stay out.
-    const inProgress = shows.filter(s => s.status === 'watching');
-
-    if (inProgress.length === 0) {
-      container.hidden = true;
-      emptyEl.hidden = false;
-      return;
-    }
-    container.hidden = false;
-    emptyEl.hidden = true;
-    container.innerHTML = '';
-
-    inProgress.slice(0, KEEP_WATCHING_PREVIEW_LIMIT).forEach(item => {
-      const card = buildCard(item);
-
-      const progress = document.createElement('p');
-      progress.className = 'card-meta';
-      progress.textContent = `${item.watched}/${item.total} episodes watched`;
-      card.infoEl.appendChild(progress);
-
-      if (item.hasNewEpisodes) {
-        const dot = document.createElement('span');
-        dot.className = 'new-episode-dot';
-        dot.title = 'New episodes available';
-        card.overlayActionsEl.appendChild(dot);
-      }
-
-      attachStandardActions(card, item, context);
-      container.appendChild(card);
-    });
-
-    if (inProgress.length > KEEP_WATCHING_PREVIEW_LIMIT) {
-      const moreCard = document.createElement('div');
-      moreCard.className = 'more-card';
-      moreCard.innerHTML = `<a href="media-list.html?source=watched&type=tv&filter=watching" class="more-btn" aria-label="View all shows you're watching">${moreBtnContentHtml('View All')}</a>`;
-      container.appendChild(moreCard);
-    }
-  } catch (error) {
-    console.error('Failed to load keep watching:', error);
-    container.hidden = true;
-    emptyEl.hidden = false;
-  }
-}
-
-function buildRecommendedCard(item) {
+function showCard(raw, context) {
+  const item = raw.tmdbId ? raw : toStandardItem(raw, MEDIA_TYPE);
   const card = buildCard(item);
   attachStandardActions(card, item, context);
   return card;
 }
 
-async function loadRecommended() {
-  const container = document.getElementById('recommended-shows');
-  const emptyEl = document.getElementById('recommended-empty');
-  container.hidden = false;
-  emptyEl.hidden = true;
-  renderSkeletonRow(container);
+async function loadKeepWatching(context, trackedShows) {
+  const container = document.getElementById('keep-watching');
+  container.innerHTML = '';
+  renderSkeletonRow(container, 3);
   try {
-    const data = await fetch('/api/recommendations/tv?page=1', { credentials: 'same-origin' }).then(r => r.json());
-    if (!data.items || data.items.length === 0) {
-      container.hidden = true;
-      emptyEl.hidden = false;
+    const shows = await trackedShows;
+    // Shows with aired episodes left that aren't dropped (localApi.js's computeShowStatus).
+    const inProgress = shows
+      .filter(s => s.status === 'watching')
+      .sort((a, b) => (b.lastWatchedAt || '').localeCompare(a.lastWatchedAt || ''));
+    container.innerHTML = '';
+    if (inProgress.length === 0) {
+      container.appendChild(el('p', 'empty-note', 'No shows in progress. Start watching something!'));
       return;
     }
-    container.hidden = false;
-    emptyEl.hidden = true;
+    inProgress.slice(0, KEEP_WATCHING_PREVIEW_LIMIT).forEach(show => {
+      const card = showCard(show, context);
+      addCardDetail(card, `${show.watched}/${show.total} episodes watched`);
+      if (show.hasNewEpisodes) card.overlayActionsEl.appendChild(el('span', 'tt-poster__badge', 'New'));
+      container.appendChild(card);
+    });
+  } catch (error) {
+    console.error('Failed to load keep watching:', error);
     container.innerHTML = '';
-    data.items.forEach(item => container.appendChild(buildRecommendedCard(item)));
-
-    if (data.totalPages > 1) {
-      attachLoadMoreRow(
-        container,
-        page => fetch(`/api/recommendations/tv?page=${page}`, { credentials: 'same-origin' })
-          .then(r => r.json())
-          .then(d => ({ results: d.items, total_pages: d.totalPages })),
-        buildRecommendedCard,
-        { startPage: 2 }
-      );
-    }
-  } catch (error) {
-    console.error('Failed to load recommendations:', error);
-    container.hidden = true;
-    emptyEl.hidden = false;
-  }
-}
-
-async function loadGenreToolbar() {
-  const toolbar = document.getElementById('genre-toolbar');
-  try {
-    const data = await fetch('/api/tmdb/genre/tv/list', { credentials: 'same-origin' }).then(r => r.json());
-    (data.genres || []).forEach(genre => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'list-chip';
-      chip.textContent = genre.name;
-      chip.addEventListener('click', () => {
-        if (selectedGenreIds.has(genre.id)) {
-          selectedGenreIds.delete(genre.id);
-          chip.classList.remove('active');
-        } else {
-          selectedGenreIds.add(genre.id);
-          chip.classList.add('active');
-        }
-        currentPage = 1;
-        loadBrowsePage();
-      });
-      toolbar.appendChild(chip);
-    });
-  } catch (error) {
-    console.error('Failed to load genres:', error);
-  }
-}
-
-async function loadBrowsePage() {
-  const grid = document.getElementById('browse-grid');
-  const params = new URLSearchParams({
-    page: currentPage,
-    sort_by: 'popularity.desc',
-    language: 'en-US',
-    include_adult: 'false',
-  });
-  if (selectedGenreIds.size > 0) {
-    params.set('with_genres', [...selectedGenreIds].join(','));
-  }
-
-  grid.innerHTML = '';
-  renderSkeletonRow(grid);
-
-  try {
-    const data = await fetch(`/api/tmdb/discover/tv?${params.toString()}`, { credentials: 'same-origin' }).then(r => r.json());
-    grid.innerHTML = '';
-    (data.results || [])
-      .filter(raw => !watchedShowIds.has(raw.id))
-      .forEach(raw => {
-        const item = toStandardItem(raw, MEDIA_TYPE);
-        const card = buildCard(item);
-        attachStandardActions(card, item, context);
-        grid.appendChild(card);
-      });
-    renderPagination(document.getElementById('browse-pagination'), data.page || currentPage, data.total_pages || 1, page => {
-      currentPage = page;
-      loadBrowsePage();
-    });
-  } catch (error) {
-    console.error('Failed to load browse grid:', error);
-    grid.innerHTML = '<p>Failed to load shows.</p>';
+    container.appendChild(el('p', 'empty-note', "Couldn't load your shows."));
   }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  context = await fetchStandardActionContext();
-  watchedShowIds = await fetchWatchedShowIds();
-
+  const context = await fetchStandardActionContext();
   const region = getUserRegion();
-  loadPaginatedRow(`/api/tmdb/discover/tv?sort_by=popularity.desc&with_origin_country=${region}&language=en-US`, 'popular-shows');
-  loadKeepWatching();
-  loadRecommended();
-  loadGenreToolbar();
-  loadBrowsePage();
+  const trackedShows = fetchJson('/api/watched/shows?includeNewEpisodes=true&includeStatus=true').catch(() => []);
+  let watchedShowIds = new Set();
+  trackedShows.then(shows => { watchedShowIds = new Set(shows.map(s => s.tmdbId)); });
+
+  loadPosterRow(
+    document.getElementById('popular-shows'),
+    page => fetchJson(`/api/tmdb/discover/tv?sort_by=popularity.desc&with_origin_country=${region}&language=en-US&page=${page}`),
+    raw => showCard(raw, context)
+  );
+  loadKeepWatching(context, trackedShows);
+  loadPosterRow(
+    document.getElementById('recommended-shows'),
+    page => fetchJson(`/api/recommendations/tv?page=${page}`).then(d => ({ results: d.items, total_pages: d.totalPages })),
+    item => showCard(item, context),
+    { emptyText: 'Watch or save a few shows to get recommendations.' }
+  );
+
+  await trackedShows;
+  initBrowse({ mediaType: MEDIA_TYPE, context, excludeIds: () => watchedShowIds });
 });

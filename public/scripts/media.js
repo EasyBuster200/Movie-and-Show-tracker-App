@@ -1,9 +1,19 @@
+// The shared component library: every page builds its UI from these DOM builders, so the
+// look stays one design system (styles/style.css's tt-* classes, from docs/design). Page
+// scripts only decide what data goes where.
+
 const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
 const BACKDROP_BASE_URL = 'https://image.tmdb.org/t/p/w1280';
 const PROFILE_BASE_URL = 'https://image.tmdb.org/t/p/w185';
+const STILL_BASE_URL = 'https://image.tmdb.org/t/p/w300';
+const THUMB_BASE_URL = 'https://image.tmdb.org/t/p/w154';
 
 function posterUrl(posterPath) {
-  return posterPath ? IMAGE_BASE_URL + posterPath : 'https://via.placeholder.com/500x750?text=No+Image';
+  return posterPath ? IMAGE_BASE_URL + posterPath : null;
+}
+
+function thumbUrl(posterPath) {
+  return posterPath ? THUMB_BASE_URL + posterPath : null;
 }
 
 function backdropUrl(backdropPath) {
@@ -11,197 +21,17 @@ function backdropUrl(backdropPath) {
 }
 
 function profileUrl(profilePath) {
-  return profilePath ? PROFILE_BASE_URL + profilePath : 'https://via.placeholder.com/185x278?text=No+Photo';
+  return profilePath ? PROFILE_BASE_URL + profilePath : null;
 }
-
-const STILL_BASE_URL = 'https://image.tmdb.org/t/p/w300';
 
 function stillUrl(stillPath) {
-  return stillPath ? STILL_BASE_URL + stillPath : 'https://via.placeholder.com/300x169?text=No+Image';
+  return stillPath ? STILL_BASE_URL + stillPath : null;
 }
 
-// Best-effort country guess from the browser's locale (e.g. "en-US" -> "US"), used to bias
-// "Popular" rows toward content that originates from the user's region. Falls back to US
-// when the locale has no region subtag (e.g. just "en").
+// The profile's region (Settings > Region, else guessed from the phone's locale), used to bias
+// "Popular" rows toward content from there. See profiles.js's profileRegion.
 function getUserRegion() {
-  const locale = navigator.language || 'en-US';
-  const region = locale.split('-')[1];
-  return (region || 'US').toUpperCase();
-}
-
-// Prev/Next + a "Page X of Y" label, shared by every page with a paginated TMDB grid
-// (Movies/Shows browse grids, search results, the person page's filmography). `onPageChange
-// (page)` is called when Prev/Next is clicked; it's up to the caller to update its own page
-// state and reload. Deliberately not per-number jump buttons (a previous version windowed
-// Prev/1…current±2…Last/Next) - that could overflow a phone-width row once there were enough
-// pages to need an ellipsis on both sides, wrapping Next onto its own line. Always exactly
-// three elements here, so it always fits on one line with no wrapping and no scrolling needed,
-// regardless of how many total pages exist.
-function renderPagination(container, currentPage, totalPages, onPageChange) {
-  container.innerHTML = '';
-  if (!totalPages || totalPages <= 1) return;
-
-  function pageButton(label, page, disabled) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'page-btn';
-    btn.textContent = label;
-    btn.disabled = disabled;
-    if (!disabled) {
-      btn.addEventListener('click', () => onPageChange(page));
-    }
-    return btn;
-  }
-
-  container.appendChild(pageButton('Prev', currentPage - 1, currentPage <= 1));
-
-  const label = document.createElement('span');
-  label.className = 'page-label';
-  label.textContent = `Page ${currentPage} of ${totalPages}`;
-  container.appendChild(label);
-
-  container.appendChild(pageButton('Next', currentPage + 1, currentPage >= totalPages));
-}
-
-// Appends a trailing "+" tile to a horizontally-scrolling row (a `.media-container`) that,
-// when clicked, fetches and appends the next page of the same paginated TMDB feed - removing
-// itself once the feed runs out of pages. `fetchPage(page)` must resolve to a TMDB-shaped
-// { results, page, total_pages } object. `renderItem(raw)` builds and returns the card for one
-// result, or returns a falsy value to skip it (e.g. filtering out "person" entries). Returns a
-// `loadNextPage` function the caller uses to kick off the first page itself, so the caller
-// still controls what an empty/failed first load looks like.
-// Shared by attachLoadMoreRow below and profile.js/shows.js's plain "View all" links - same
-// card-sized tile, same icon+label content, whether it loads more inline or navigates away.
-function moreBtnContentHtml(label) {
-  return `
-    <span class="more-btn-icon" aria-hidden="true">
-      <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="m313-440 224 224-57 56-320-320 320-320 57 56-224 224h487v80H313Z"/></svg>
-    </span>
-    <span class="more-btn-label">${label}</span>
-  `;
-}
-
-function attachLoadMoreRow(container, fetchPage, renderItem, { startPage = 1 } = {}) {
-  let page = startPage;
-  let loading = false;
-  // Only the very first load gets skeleton placeholders - by the time the user clicks
-  // "Load More" themselves, the row already has real cards on screen, so there's nothing
-  // empty to mask.
-  let firstLoad = true;
-
-  const moreCard = document.createElement('div');
-  moreCard.className = 'more-card';
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'more-btn';
-  button.setAttribute('aria-label', 'Load more');
-  button.innerHTML = moreBtnContentHtml('Load More');
-  moreCard.appendChild(button);
-  container.appendChild(moreCard);
-
-  // A `renderItem` that filters (returns falsy for some raw results - e.g. movies.js's
-  // Coming Soon row skipping already-released titles) can hit a page where only a handful, or
-  // even zero, of a page's ~20 raw results survive. Stopping as soon as *anything* got added
-  // would still leave a filtered row looking sparse (2-3 cards) compared to a normal unfiltered
-  // row's full page - so a single call here keeps pulling subsequent pages on its own until it's
-  // accumulated a full page's worth, up to MAX_PAGES_PER_LOAD, instead of stopping at the first
-  // non-empty one. Rows with no filtering (the common case) always fill this on the first page,
-  // so this loop never runs more than once for them.
-  const TARGET_ITEMS_PER_LOAD = 20;
-  const MAX_PAGES_PER_LOAD = 10;
-
-  async function loadNextPage() {
-    if (loading) return;
-    loading = true;
-    button.disabled = true;
-
-    const skeletons = firstLoad
-      ? Array.from({ length: SKELETON_ROW_COUNT }, () => {
-          const skeleton = buildSkeletonCard();
-          container.insertBefore(skeleton, moreCard);
-          return skeleton;
-        })
-      : [];
-
-    try {
-      let added = 0;
-      for (let attempts = 0; attempts < MAX_PAGES_PER_LOAD && added < TARGET_ITEMS_PER_LOAD; attempts++) {
-        const data = await fetchPage(page);
-        (data.results || []).forEach(raw => {
-          const card = renderItem(raw);
-          if (card) {
-            // Swap a still-pending skeleton for the real card in place, so cards don't jump
-            // around mid-row as results trickle in - only overflow to appending once every
-            // skeleton has been claimed.
-            const skeleton = skeletons.shift();
-            if (skeleton) container.replaceChild(card, skeleton);
-            else container.insertBefore(card, moreCard);
-            added += 1;
-          }
-        });
-        const totalPages = data.total_pages || page;
-        if (page >= totalPages) {
-          moreCard.remove();
-          break;
-        }
-        page += 1;
-      }
-    } catch (error) {
-      console.error('Failed to load more:', error);
-      if (!container.querySelector('.card:not(.skeleton)')) {
-        container.innerHTML = '<p>Failed to load.</p>';
-      }
-    } finally {
-      skeletons.forEach(skeleton => skeleton.remove());
-      loading = false;
-      button.disabled = false;
-      firstLoad = false;
-    }
-  }
-
-  button.addEventListener('click', loadNextPage);
-  return loadNextPage;
-}
-
-const SKELETON_ROW_COUNT = 8;
-
-// A placeholder shaped exactly like a real .card (same .card-poster/.card-info structure, so
-// it takes up the same layout space and can't cause a reflow when swapped for the real thing)
-// with shimmering blocks instead of real content, and no click handler since there's nothing to
-// open yet. Used everywhere a row/grid is about to wait on a network fetch, so the row's shape
-// appears immediately instead of the space looking empty/broken until data arrives.
-function buildSkeletonCard() {
-  const card = document.createElement('div');
-  card.className = 'card skeleton';
-
-  const posterWrap = document.createElement('div');
-  posterWrap.className = 'card-poster skeleton-shimmer';
-  card.appendChild(posterWrap);
-
-  const info = document.createElement('div');
-  info.className = 'card-info';
-
-  const meta = document.createElement('p');
-  meta.className = 'card-meta skeleton-line skeleton-shimmer';
-  info.appendChild(meta);
-
-  const title = document.createElement('h3');
-  title.className = 'card-title skeleton-line skeleton-shimmer';
-  info.appendChild(title);
-
-  card.appendChild(info);
-  return card;
-}
-
-// Fills `container` with placeholder cards ahead of a fetch that's about to replace its
-// contents wholesale (the common case: the caller already does `container.innerHTML = ''` once
-// real data arrives, which clears these back out). Not used by attachLoadMoreRow's own first
-// load below, which replaces skeletons in place one at a time as results arrive instead, so
-// cards don't jump around mid-row.
-function renderSkeletonRow(container, count = SKELETON_ROW_COUNT) {
-  for (let i = 0; i < count; i++) {
-    container.appendChild(buildSkeletonCard());
-  }
+  return profileRegion();
 }
 
 function detailUrl(item) {
@@ -212,11 +42,393 @@ function personUrl(item) {
   return `person.html?id=${item.tmdbId}`;
 }
 
-// Normalizes a raw TMDB person search/credit result. Deliberately not folded into the
-// standard item shape (tmdbId/mediaType/title/year/releaseDate/posterPath/voteAverage) used
-// for movies/shows - a person has none of releaseDate/voteAverage, and its image is a profile
-// photo (profile_path), not a poster - forcing it into that shape would just mean every reader
-// has to know which fields are actually meaningless for a `mediaType: 'person'` item.
+// ---------- Icons ----------
+
+// Line icons from the design system (24x24, stroked). `filled` fills the shape, used for a
+// toggle that's on.
+const TT_ICON_PATHS = {
+  home: ['M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z'],
+  bookmark: ['M6 3.5h12v17l-6-4.5-6 4.5z'],
+  folder: ['M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z'],
+  film: ['M4.5 3.5h15v17h-15z', 'M8.5 3.5v17', 'M15.5 3.5v17', 'M4.5 8h4', 'M4.5 16h4', 'M15.5 8h4', 'M15.5 16h4'],
+  tv: ['M3 7.5h18v12H3z', 'M8 3l4 4.5L16 3'],
+  user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4.5 20.5a7.5 7.5 0 0 1 15 0'],
+  eye: ['M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  heart: ['M12 20s-7.5-4.6-9.2-9.4A4.6 4.6 0 0 1 12 7.2a4.6 4.6 0 0 1 9.2 3.4C19.5 15.4 12 20 12 20z'],
+  search: ['M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14z', 'M20.5 20.5l-4.5-4.5'],
+  back: ['M19 12H5', 'M11 6l-6 6 6 6'],
+  check: ['M5 12.5l4.5 4.5L19 7.5'],
+  star: ['M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z'],
+  chevron: ['M9 6l6 6-6 6'],
+  'chevron-left': ['M15 6l-6 6 6 6'],
+  play: ['M7 4.5v15l12-7.5z'],
+  close: ['M6 6l12 12', 'M18 6L6 18'],
+  plus: ['M12 5v14', 'M5 12h14'],
+  more: ['M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z', 'M3.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z', 'M17.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z'],
+  cloud: ['M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z', 'M9.5 13.5l2 2 3.5-3.5'],
+  sliders: ['M4 7h10', 'M18 7h2', 'M16 5v4', 'M4 17h4', 'M12 17h8', 'M10 15v4'],
+  calendar: ['M4 6.5h16v14H4z', 'M4 10.5h16', 'M8 3.5v4', 'M16 3.5v4'],
+};
+
+function ttIcon(name, { size = 24, filled = false, strokeWidth = 1.8 } = {}) {
+  const paths = (TT_ICON_PATHS[name] || []).map((d, i) => {
+    // A filled eye keeps a visible pupil: the inner circle is cut out in the page colour.
+    const cut = filled && name === 'eye' && i === 1;
+    return `<path d="${d}"${cut ? ' fill="var(--bg-page)" stroke="var(--bg-page)"' : ''}></path>`;
+  }).join('');
+  return `<svg class="tt-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
+// The TMDB star next to a title's rating.
+function ratingStarSvg(size = 16) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="var(--rating)" stroke="var(--rating)" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="${TT_ICON_PATHS.star[0]}"></path></svg>`;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+// ---------- Bottom nav ----------
+
+const NAV_ITEMS = [
+  { id: 'home', icon: 'home', label: 'Home', href: 'main.html' },
+  { id: 'watchlist', icon: 'bookmark', label: 'Watchlist', href: 'bookmarks.html' },
+  { id: 'lists', icon: 'folder', label: 'Lists', href: 'lists.html' },
+  { id: 'movies', icon: 'film', label: 'Movies', href: 'movies.html' },
+  { id: 'shows', icon: 'tv', label: 'Shows', href: 'shows.html' },
+  { id: 'profile', icon: 'user', label: 'Profile', href: 'profile.html' },
+];
+
+// Every page has an empty <nav class="tt-nav" data-active="..."> - filled in here so the six
+// icons are defined once.
+function renderBottomNav(nav) {
+  const active = nav.dataset.active;
+  nav.setAttribute('aria-label', 'Main');
+  nav.innerHTML = '';
+  NAV_ITEMS.forEach(item => {
+    const on = item.id === active;
+    const link = el('a', `tt-nav__item${on ? ' tt-nav__item--on' : ''}`);
+    link.href = item.href;
+    link.setAttribute('aria-label', item.label);
+    if (on) link.setAttribute('aria-current', 'page');
+    link.innerHTML = ttIcon(item.icon, { size: 24, strokeWidth: on ? 2 : 1.8 });
+    nav.appendChild(link);
+  });
+}
+
+// A back button (any element with data-back="<fallback page>"): history back, or the
+// fallback when there's no history (opened from a notification, say). The fallback is read on
+// click, so a page script can point it somewhere more specific once it knows.
+function initBackButton(button) {
+  if (!button) return;
+  button.addEventListener('click', () => {
+    if (window.history.length > 1) window.history.back();
+    else window.location.href = button.dataset.back || 'main.html';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('nav.tt-nav[data-active]').forEach(renderBottomNav);
+  document.querySelectorAll('[data-back]').forEach(initBackButton);
+});
+
+// ---------- Small building blocks ----------
+
+function titleInitials(title) {
+  return String(title || '')
+    .split(/\s+/)
+    .filter(word => /[A-Za-z0-9]/.test(word.charAt(0)))
+    .slice(0, 2)
+    .map(word => word.charAt(0).toUpperCase())
+    .join('');
+}
+
+// Poster art: the image, or the title's initials on a plain tile when there's no poster.
+function buildPosterArt(title, imageSrc, { lazy = true } = {}) {
+  const art = el('div', 'tt-poster__art');
+  if (imageSrc) {
+    const img = document.createElement('img');
+    img.src = imageSrc;
+    img.alt = `${title} poster`;
+    if (lazy) img.loading = 'lazy';
+    art.appendChild(img);
+  } else {
+    const ph = el('div', 'tt-poster__ph', titleInitials(title));
+    ph.setAttribute('aria-hidden', 'true');
+    art.appendChild(ph);
+  }
+  return art;
+}
+
+function buildProgressBar(value, max, label = 'Progress') {
+  const bar = el('div', 'tt-progress');
+  bar.setAttribute('role', 'progressbar');
+  bar.setAttribute('aria-label', label);
+  const fill = el('div', 'tt-progress__fill');
+  bar.appendChild(fill);
+  bar.setProgress = (v, m) => {
+    const pct = m > 0 ? Math.max(0, Math.min(100, (v / m) * 100)) : 0;
+    fill.style.width = `${pct}%`;
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', String(m || 0));
+    bar.setAttribute('aria-valuenow', String(v || 0));
+  };
+  bar.setProgress(value, max);
+  return bar;
+}
+
+function buildChip(label, { selected = false, count = null, check = false, onClick } = {}) {
+  const chip = el('button', `tt-chip${selected ? ' tt-chip--on' : ''}`);
+  chip.type = 'button';
+  chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  if (check && selected) chip.insertAdjacentHTML('beforeend', ttIcon('check', { size: 16, strokeWidth: 2.2 }));
+  chip.appendChild(document.createTextNode(label));
+  if (count != null) chip.appendChild(el('span', 'tt-chip__count', String(count)));
+  if (onClick) chip.addEventListener('click', onClick);
+  return chip;
+}
+
+// A compact row: thumbnail, title, meta line, optional progress. Used for search results and
+// Continue Watching. `round` makes the image a circle (people).
+function buildMediaRow({ href, title, meta, imageSrc, round = false, progress = null, onClick }) {
+  const row = el(href ? 'a' : 'button', 'tt-media');
+  if (href) row.href = href;
+  else row.type = 'button';
+  if (onClick) row.addEventListener('click', onClick);
+
+  const art = buildPosterArt(title, imageSrc);
+  if (round) art.classList.add('tt-media__photo');
+  row.appendChild(art);
+
+  const body = el('span', 'tt-media__body');
+  body.appendChild(el('span', 'tt-media__title', title));
+  if (meta) body.appendChild(el('span', 'tt-media__meta', meta));
+  if (progress && progress.total > 0) {
+    body.appendChild(buildProgressBar(progress.watched, progress.total, `${title} progress`));
+    body.appendChild(el('span', 'tt-media__meta', `${progress.watched}/${progress.total} episodes watched`));
+  }
+  row.bodyEl = body;
+  row.appendChild(body);
+  return row;
+}
+
+function parseLocalDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// "Tonight", "Tomorrow", "In 3 days" - relative to today, for an episode's air date.
+function relativeAirLabel(dateStr) {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((parseLocalDate(dateStr) - start) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return `In ${days} days`;
+}
+
+function episodeCode(seasonNumber, episodeNumber, name) {
+  const hasRealName = name && !/^Episode\s+\d+$/i.test(name.trim());
+  return `S${seasonNumber} · E${episodeNumber}${hasRealName ? ` · ${name}` : ''}`;
+}
+
+// One upcoming episode: a date tile, the show, the episode, and when it airs.
+function buildAiringRow({ href, title, airDate, seasonNumber, episodeNumber, episodeName }) {
+  const row = el(href ? 'a' : 'div', 'tt-airing');
+  if (href) row.href = href;
+  const date = parseLocalDate(airDate);
+
+  const tile = el('span', 'tt-airing__date');
+  tile.setAttribute('aria-hidden', 'true');
+  tile.appendChild(el('span', 'tt-airing__dow', date.toLocaleDateString(undefined, { weekday: 'short' })));
+  tile.appendChild(el('span', 'tt-airing__num', String(date.getDate())));
+  row.appendChild(tile);
+
+  const body = el('span', 'tt-airing__body');
+  body.appendChild(el('span', 'tt-airing__title', title));
+  body.appendChild(el('span', 'tt-airing__ep', episodeCode(seasonNumber, episodeNumber, episodeName)));
+  row.appendChild(body);
+
+  const label = relativeAirLabel(airDate);
+  const when = el('span', `tt-airing__when${label === 'Today' || label === 'Tomorrow' ? ' tt-airing__when--soon' : ''}`);
+  when.appendChild(el('span', 'tt-sr', `${date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}, `));
+  when.appendChild(document.createTextNode(label));
+  row.appendChild(when);
+  row.dataset.date = airDate;
+  return row;
+}
+
+function buildCastCard({ tmdbId, name, role, profilePath }) {
+  const card = el('a', 'tt-cast');
+  card.href = personUrl({ tmdbId });
+  const photo = el('div', 'tt-cast__photo');
+  if (profilePath) {
+    const img = document.createElement('img');
+    img.src = profileUrl(profilePath);
+    img.alt = name;
+    img.loading = 'lazy';
+    photo.appendChild(img);
+  } else {
+    const span = el('span', null, titleInitials(name));
+    span.setAttribute('aria-hidden', 'true');
+    photo.appendChild(span);
+  }
+  card.appendChild(photo);
+  card.appendChild(el('span', 'tt-cast__name', name));
+  if (role) card.appendChild(el('span', 'tt-cast__role', role));
+  return card;
+}
+
+// The design system's on/off switch. `onChange(on)` runs after it flips; `setOn(on)` sets it.
+function buildSwitch(label, on, onChange) {
+  const btn = el('button', 'tt-switch');
+  btn.type = 'button';
+  btn.setAttribute('role', 'switch');
+  btn.setAttribute('aria-label', label);
+  btn.appendChild(el('span', 'tt-switch__knob'));
+  btn.setOn = value => {
+    btn.classList.toggle('tt-switch--on', value);
+    btn.setAttribute('aria-checked', value ? 'true' : 'false');
+  };
+  btn.setOn(on);
+  btn.addEventListener('click', () => {
+    const next = btn.getAttribute('aria-checked') !== 'true';
+    btn.setOn(next);
+    if (onChange) onChange(next);
+  });
+  return btn;
+}
+
+function buildStatTile(value, label, { wide = false } = {}) {
+  const tile = el('div', `tt-stat${wide ? ' tt-stat--wide' : ''}`);
+  tile.appendChild(el('span', 'tt-stat__value', String(value)));
+  tile.appendChild(el('span', 'tt-stat__label', label));
+  return tile;
+}
+
+// ---------- Pagination ----------
+
+// Prev / "Page X of Y" / Next, shared by every page with a paginated grid (browse grids,
+// search, filmography, see-all feeds). Always three elements, so it fits a phone-width line.
+function renderPagination(container, currentPage, totalPages, onPageChange) {
+  container.innerHTML = '';
+  container.classList.add('pager');
+  if (!totalPages || totalPages <= 1) return;
+  container.setAttribute('aria-label', 'Pages');
+
+  function pageButton(icon, label, page, disabled) {
+    const btn = el('button', 'pager__btn');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', label);
+    btn.innerHTML = ttIcon(icon, { size: 18, strokeWidth: 2 });
+    btn.disabled = disabled;
+    if (!disabled) btn.addEventListener('click', () => {
+      onPageChange(page);
+      container.closest('section, .page-body, main')?.scrollIntoView({ block: 'start' });
+    });
+    return btn;
+  }
+
+  container.appendChild(pageButton('chevron-left', 'Previous page', currentPage - 1, currentPage <= 1));
+  const label = el('span', 'pager__label');
+  label.innerHTML = `Page <strong>${currentPage}</strong> of ${totalPages}`;
+  container.appendChild(label);
+  container.appendChild(pageButton('chevron', 'Next page', currentPage + 1, currentPage >= totalPages));
+}
+
+// ---------- Skeletons ----------
+
+const SKELETON_ROW_COUNT = 6;
+
+// A placeholder shaped like a real poster card, shown while a row or grid waits on a fetch.
+function buildSkeletonCard() {
+  const card = el('div', 'tt-poster skeleton');
+  card.setAttribute('aria-hidden', 'true');
+  card.appendChild(el('div', 'tt-poster__art skeleton-shimmer'));
+  card.appendChild(el('div', 'skeleton-line short skeleton-shimmer'));
+  card.appendChild(el('div', 'skeleton-line skeleton-shimmer'));
+  return card;
+}
+
+function renderSkeletonRow(container, count = SKELETON_ROW_COUNT) {
+  for (let i = 0; i < count; i++) container.appendChild(buildSkeletonCard());
+}
+
+function buildSkeletonMediaRow() {
+  const row = el('div', 'tt-media skeleton');
+  row.setAttribute('aria-hidden', 'true');
+  const art = el('div', 'tt-poster__art skeleton-shimmer');
+  row.appendChild(art);
+  const body = el('div', 'tt-media__body');
+  body.appendChild(el('div', 'skeleton-line skeleton-shimmer'));
+  body.appendChild(el('div', 'skeleton-line short skeleton-shimmer'));
+  row.appendChild(body);
+  return row;
+}
+
+// ---------- Poster rows fed by TMDB pages ----------
+
+// Fills a horizontal poster row from a paginated feed. `fetchPage(page)` resolves to
+// { results, total_pages }; `renderItem(raw)` returns a card or falsy to skip it. A filter that
+// skips many results (Coming Soon drops already-released titles) would leave the row sparse,
+// so this keeps pulling pages until it has `target` cards or runs out.
+async function loadPosterRow(container, fetchPage, renderItem, { target = 20, maxPages = 10, emptyText = 'Nothing here yet.' } = {}) {
+  container.innerHTML = '';
+  renderSkeletonRow(container);
+  const cards = [];
+  try {
+    for (let page = 1; page <= maxPages && cards.length < target; page++) {
+      const data = await fetchPage(page);
+      (data.results || []).forEach(raw => {
+        const card = renderItem(raw);
+        if (card) cards.push(card);
+      });
+      if (page >= (data.total_pages || page)) break;
+    }
+    container.innerHTML = '';
+    if (cards.length === 0) {
+      container.appendChild(el('p', 'empty-note', emptyText));
+      return 0;
+    }
+    cards.slice(0, target).forEach(card => container.appendChild(card));
+    return cards.length;
+  } catch (error) {
+    console.error('Failed to load row:', error);
+    container.innerHTML = '';
+    container.appendChild(el('p', 'empty-note', "Couldn't load this. Check your connection."));
+    return 0;
+  }
+}
+
+// With a non-English language (Settings > Language), TMDB leaves a text field empty when it has
+// no translation. Pages that ask for `append_to_response=translations` fall back to the English
+// text with this. `withTranslations()` gives the append_to_response entry, or '' for English.
+function withTranslations() {
+  return profileLanguage() === DEFAULT_TMDB_LANGUAGE ? '' : 'translations';
+}
+
+function textOrEnglish(data, field) {
+  if (data && data[field]) return data[field];
+  const translations = (data && data.translations && data.translations.translations) || [];
+  const english = translations.find(t => t.iso_639_1 === 'en' && t.iso_3166_1 === 'US')
+    || translations.find(t => t.iso_639_1 === 'en');
+  return (english && english.data && english.data[field]) || '';
+}
+
+function fetchJson(url) {
+  return fetch(url, { credentials: 'same-origin' }).then(r => {
+    if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+    return r.json();
+  });
+}
+
+// ---------- Search result rows ----------
+
+// Normalizes a raw TMDB person search/credit result. Deliberately not the standard item
+// shape: a person has no release date or rating, and its image is a profile photo.
 function normalizeTmdbPerson(raw) {
   return {
     tmdbId: raw.id,
@@ -227,245 +439,210 @@ function normalizeTmdbPerson(raw) {
   };
 }
 
-// Renders TMDB search-multi results into `resultsEl` as compact poster+title+meta rows,
-// shared by the typeahead dropdown (search.js) and the Lists quick-add card (lists.js).
-// `onSelect(item)` is called on row click — callers decide what a click means (navigate to
-// the detail/person page, add to a list, etc); this function only owns rendering, not
-// `.hidden` toggling, since that's presentational and differs per caller. `includePersons`
-// defaults off since a list only ever holds movies/shows - only the global search bar
-// (search.js) opts in.
-function renderSearchResultRows(resultsEl, rawResults, onSelect, { includePersons = false } = {}) {
-  const items = rawResults
-    .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || (includePersons && r.media_type === 'person'))
-    .slice(0, 8)
-    .map(r => (r.media_type === 'person' ? normalizeTmdbPerson(r) : toStandardItem(r)));
+function mediaTypeLabel(mediaType) {
+  if (mediaType === 'tv') return 'Show';
+  if (mediaType === 'movie') return 'Movie';
+  return 'Person';
+}
 
-  resultsEl.innerHTML = '';
+// "Show • 2026 • 8.1/10" for a movie/show, "Person • Acting" for a person.
+function searchResultMeta(item) {
+  if (item.mediaType === 'person') return ['Person', item.knownForDepartment].filter(Boolean).join(' • ');
+  return [mediaTypeLabel(item.mediaType), item.year, ratingLabel(item)].filter(Boolean).join(' • ');
+}
 
-  if (items.length === 0) {
-    const empty = document.createElement('p');
-    empty.className = 'search-empty';
-    empty.textContent = 'No results found.';
-    resultsEl.appendChild(empty);
-    return;
-  }
-
-  items.forEach(item => {
-    const isPerson = item.mediaType === 'person';
-    const row = document.createElement('div');
-    row.className = 'search-result-row';
-
-    const img = document.createElement('img');
-    img.src = isPerson ? profileUrl(item.profilePath) : posterUrl(item.posterPath);
-    img.alt = isPerson ? item.name : item.title;
-    row.appendChild(img);
-
-    const info = document.createElement('div');
-    info.className = 'search-result-info';
-
-    const title = document.createElement('p');
-    title.className = 'search-result-title';
-    title.textContent = isPerson ? item.name : item.title;
-    info.appendChild(title);
-
-    const meta = document.createElement('p');
-    meta.className = 'search-result-meta';
-    meta.textContent = isPerson
-      ? (item.knownForDepartment || 'Person')
-      : `${item.year || 'N/A'} • ${item.mediaType === 'movie' ? 'Movie' : 'TV Show'}`;
-    info.appendChild(meta);
-
-    row.appendChild(info);
-    row.addEventListener('click', () => onSelect(item));
-    resultsEl.appendChild(row);
+function buildSearchResultRow(item, onSelect) {
+  const isPerson = item.mediaType === 'person';
+  return buildMediaRow({
+    href: onSelect ? null : (isPerson ? personUrl(item) : detailUrl(item)),
+    title: isPerson ? item.name : item.title,
+    meta: searchResultMeta(item),
+    imageSrc: isPerson ? profileUrl(item.profilePath) : thumbUrl(item.posterPath),
+    round: isPerson,
+    onClick: onSelect ? () => onSelect(item) : null,
   });
 }
 
-// A person's card for the search results grid - visually like .card, but a profile photo and
-// department instead of a poster/year/rating, no save/favorite/watched overlay (those are
-// movie/show-only concepts), and links to the person page instead of detail.html.
-function buildPersonCard(person) {
-  const card = document.createElement('div');
-  card.className = 'card';
+// Renders TMDB search-multi results into `resultsEl` as media rows - the typeahead dropdown
+// (search.js) and the add-to-list dialog. `onSelect(item)`, if given, replaces navigation.
+function renderSearchResultRows(resultsEl, rawResults, onSelect, { includePersons = false, limit = 8 } = {}) {
+  const items = rawResults
+    .filter(r => r.media_type === 'movie' || r.media_type === 'tv' || (includePersons && r.media_type === 'person'))
+    .slice(0, limit)
+    .map(r => (r.media_type === 'person' ? normalizeTmdbPerson(r) : toStandardItem(r)));
 
-  const posterWrap = document.createElement('div');
-  posterWrap.className = 'card-poster';
+  resultsEl.innerHTML = '';
+  if (items.length === 0) {
+    resultsEl.appendChild(el('p', 'search-empty', 'No matches. Try a shorter word, or check the spelling.'));
+    return;
+  }
+  items.forEach(item => resultsEl.appendChild(buildSearchResultRow(item, onSelect)));
+}
 
-  const img = document.createElement('img');
-  img.src = profileUrl(person.profilePath);
-  img.alt = person.name;
-  posterWrap.appendChild(img);
-  card.appendChild(posterWrap);
+// ---------- Poster card ----------
 
-  const info = document.createElement('div');
-  info.className = 'card-info';
-
-  const meta = document.createElement('p');
-  meta.className = 'card-meta';
-  meta.textContent = person.knownForDepartment || 'Person';
-  info.appendChild(meta);
-
-  const title = document.createElement('h3');
-  title.className = 'card-title';
-  title.textContent = person.name;
-  info.appendChild(title);
-
-  card.appendChild(info);
-
-  card.addEventListener('click', () => {
-    window.location.href = personUrl(person);
-  });
-
-  return card;
+// "8.4/10", "Not rated", or "Coming soon" for something unreleased.
+function ratingLabel(item) {
+  if (isUnreleased(item.releaseDate)) return 'Coming soon';
+  const rating = Number(item.voteAverage);
+  if (!rating) return 'Not rated';
+  return `${rating.toFixed(1)}/10`;
 }
 
 function formatRating(voteAverage) {
   if (voteAverage === null || voteAverage === undefined) return 'N/A';
-  const rating = Number(voteAverage);
-  return (rating - Math.floor(rating)) === 0 ? rating : rating.toFixed(1);
+  return Number(voteAverage).toFixed(1);
 }
 
+function cardMeta(item) {
+  return [item.year, ratingLabel(item)].filter(Boolean).join(' • ');
+}
+
+// The poster card used everywhere a movie/show is listed: art with the action toggles on it,
+// then a meta line and the title. `card.overlayActionsEl` is where toggles go;
+// `card.infoEl` takes extra lines under the title (e.g. "3/10 episodes watched").
 function buildCard(item) {
-  const card = document.createElement('div');
-  card.className = 'card';
+  const card = el('div', 'tt-poster');
+  const art = buildPosterArt(item.title, posterUrl(item.posterPath));
+  card.appendChild(art);
+  card.appendChild(el('span', 'tt-poster__meta', cardMeta(item)));
+  card.appendChild(el('span', 'tt-poster__title', item.title));
 
-  const posterWrap = document.createElement('div');
-  posterWrap.className = 'card-poster';
-
-  const img = document.createElement('img');
-  img.src = posterUrl(item.posterPath);
-  img.alt = item.title;
-  posterWrap.appendChild(img);
-
-  const overlayActions = document.createElement('div');
-  overlayActions.className = 'card-overlay-actions';
-  posterWrap.appendChild(overlayActions);
-
-  card.appendChild(posterWrap);
-
-  const info = document.createElement('div');
-  info.className = 'card-info';
-
-  const meta = document.createElement('p');
-  meta.className = 'card-meta';
-  meta.textContent = `${item.year || 'N/A'} • ${formatRating(item.voteAverage)}/10`;
-  info.appendChild(meta);
-
-  const title = document.createElement('h3');
-  title.className = 'card-title';
-  title.textContent = item.title;
-  info.appendChild(title);
-
-  card.appendChild(info);
-  card.overlayActionsEl = overlayActions;
-  card.infoEl = info;
-
+  card.overlayActionsEl = art;
+  card.infoEl = card;
   card.addEventListener('click', () => {
     window.location.href = detailUrl(item);
   });
-
   return card;
 }
+
+function addCardDetail(card, text) {
+  card.infoEl.appendChild(el('span', 'tt-poster__meta', text));
+}
+
+// A person's card (filmography-style grids, top actors): profile photo, department.
+function buildPersonCard(person) {
+  const card = el('div', 'tt-poster');
+  card.appendChild(buildPosterArt(person.name, profileUrl(person.profilePath)));
+  card.appendChild(el('span', 'tt-poster__meta', person.knownForDepartment || 'Person'));
+  card.appendChild(el('span', 'tt-poster__title', person.name));
+  card.addEventListener('click', () => {
+    window.location.href = personUrl(person);
+  });
+  return card;
+}
+
+// A round toggle on poster art. `pos` is the corner (tr/tl/bl/br); `render(on)` redraws it.
+function buildToggle(icon, pos, extraClass) {
+  const button = el('button', `tt-toggle ${extraClass || ''} pos-${pos}`);
+  button.type = 'button';
+  button.setOn = on => {
+    button.classList.toggle('tt-toggle--on', on);
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    button.innerHTML = ttIcon(icon, { size: 18, filled: on });
+  };
+  button.setOn(false);
+  return button;
+}
+
+async function ensureProfileOrRedirect() {
+  const user = await getCurrentUser();
+  if (!user) window.location.href = 'profile-picker.html';
+  return user;
+}
+
+// ---------- Card actions ----------
 
 function closeExistingPopover() {
   const existing = document.querySelector('.save-popover');
   if (existing) existing.remove();
 }
 
-function bookmarkIconSvg() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M200-120v-640q0-33 23.5-56.5T280-840h400q33 0 56.5 23.5T760-760v640L480-240 200-120Z"/></svg>';
+function watchlistKey(item) {
+  return `${item.mediaType}:${item.tmdbId}`;
 }
 
-async function attachSaveButton(actionsEl, item) {
-  const button = document.createElement('button');
-  button.className = 'card-action save-btn card-action-br';
-  button.type = 'button';
-  button.title = 'Save to a list';
-  button.innerHTML = bookmarkIconSvg();
-  actionsEl.appendChild(button);
+// The bookmark: opens a popover of every list (the Watchlist first) to save the item to. It's
+// shown filled while the item is on the Watchlist. `button` defaults to a corner toggle on
+// poster art; the detail page passes its own button.
+function attachSaveButton(actionsEl, item, context, { button = null } = {}) {
+  const btn = button || buildToggle('bookmark', 'br', 'tt-toggle--save');
+  const key = watchlistKey(item);
+  const sync = () => {
+    const on = !!(context && context.watchlistKeys && context.watchlistKeys.has(key));
+    if (btn.setOn) btn.setOn(on);
+  };
+  btn.setAttribute('aria-label', `Save ${item.title} to a list`);
+  sync();
+  if (!button) actionsEl.appendChild(btn);
 
-  button.addEventListener('click', async event => {
+  btn.addEventListener('click', async event => {
     event.stopPropagation();
-    const user = await getCurrentUser();
-    if (!user) {
-      window.location.href = 'profile-picker.html';
-      return;
-    }
+    if (!(await ensureProfileOrRedirect())) return;
 
-    if (button.classList.contains('open')) {
+    // On a card the popover goes on the card itself - the poster art clips its overflow.
+    const anchor = btn.closest('.tt-poster') || btn.parentElement;
+    if (anchor.querySelector('.save-popover')) {
       closeExistingPopover();
-      button.classList.remove('open');
       return;
     }
-
     closeExistingPopover();
-    button.classList.add('open');
 
     const [lists, membership] = await Promise.all([
-      fetch('/api/lists', { credentials: 'same-origin' }).then(r => r.json()),
-      fetch(`/api/lists/membership/${item.mediaType}/${item.tmdbId}`, { credentials: 'same-origin' }).then(r => r.json()),
+      fetchJson('/api/lists'),
+      fetchJson(`/api/lists/membership/${item.mediaType}/${item.tmdbId}`),
     ]);
 
-    const popover = document.createElement('div');
-    popover.className = 'save-popover';
-    popover.addEventListener('click', event => event.stopPropagation());
+    const popover = el('div', 'save-popover');
+    popover.addEventListener('click', e => e.stopPropagation());
 
-    lists.forEach(list => {
-      const row = document.createElement('label');
-      row.className = 'save-popover-row';
-
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = membership.listIds.includes(list.id);
-      checkbox.addEventListener('change', async () => {
-        const url = `/api/lists/${list.id}/items/${item.tmdbId}/${item.mediaType}`;
-        if (checkbox.checked) {
-          await fetch(`/api/lists/${list.id}/items`, {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tmdbId: item.tmdbId, mediaType: item.mediaType }),
-          });
-        } else {
-          await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
-        }
+    lists
+      .slice()
+      .sort((a, b) => b.is_default - a.is_default)
+      .forEach(list => {
+        const row = el('label', 'save-popover-row');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = membership.listIds.includes(list.id);
+        checkbox.addEventListener('change', async () => {
+          if (checkbox.checked) {
+            await fetch(`/api/lists/${list.id}/items`, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ tmdbId: item.tmdbId, mediaType: item.mediaType }),
+            });
+          } else {
+            await fetch(`/api/lists/${list.id}/items/${item.tmdbId}/${item.mediaType}`, { method: 'DELETE', credentials: 'same-origin' });
+          }
+          if (list.is_default && context && context.watchlistKeys) {
+            if (checkbox.checked) context.watchlistKeys.add(key);
+            else context.watchlistKeys.delete(key);
+            sync();
+          }
+        });
+        row.appendChild(checkbox);
+        row.appendChild(el('span', null, list.is_default ? 'Watchlist' : list.name));
+        popover.appendChild(row);
       });
 
-      const span = document.createElement('span');
-      span.textContent = list.name;
-
-      row.appendChild(checkbox);
-      row.appendChild(span);
-      popover.appendChild(row);
-    });
-
-    button.parentElement.appendChild(popover);
+    anchor.appendChild(popover);
 
     document.addEventListener('click', function outsideClick(e) {
-      if (!popover.contains(e.target) && e.target !== button) {
-        closeExistingPopover();
-        button.classList.remove('open');
+      if (!popover.contains(e.target) && !btn.contains(e.target)) {
+        popover.remove();
         document.removeEventListener('click', outsideClick);
       }
     });
   });
 }
 
-function closeIconSvg() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M256-200 200-256l224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z"/></svg>';
-}
-
-// Removing only makes sense on list-management pages, so it isn't part of
-// attachStandardActions — but it lives in the same overlay corner slot (top-left, unused
-// by save/favorite/watched) so it reads as part of the same action language, not a bolted-on
-// footer button.
-function attachRemoveButton(card, item, listId, onRemoved) {
-  const button = document.createElement('button');
-  button.className = 'card-action remove-btn card-action-tl';
+// The remove (×) toggle on list pages, top-left of the poster.
+function attachRemoveButton(card, item, listId, onRemoved, { listName = 'this list' } = {}) {
+  const button = el('button', 'tt-toggle pos-tl');
   button.type = 'button';
-  button.title = 'Remove from this list';
-  button.innerHTML = closeIconSvg();
-
+  button.setAttribute('aria-label', `Remove ${item.title} from ${listName}`);
+  button.innerHTML = ttIcon('close', { size: 18 });
   button.addEventListener('click', async event => {
     event.stopPropagation();
     await fetch(`/api/lists/${listId}/items/${item.tmdbId}/${item.mediaType}`, {
@@ -474,52 +651,39 @@ function attachRemoveButton(card, item, listId, onRemoved) {
     });
     onRemoved();
   });
-
   card.overlayActionsEl.appendChild(button);
 }
 
-function eyeIconSvg() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Zm0-300Zm0 220q113 0 207.5-59.5T832-500q-50-101-144.5-160.5T480-720q-113 0-207.5 59.5T128-500q50 101 144.5 160.5T480-280Z"/></svg>';
-}
+// Movies are watched as a single unit. `watchedMovieIds` is a Set fetched once per page.
+// `onChange` runs after a successful toggle so pages listing watched items can refresh.
+function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange, { button = null } = {}) {
+  const btn = button || buildToggle('eye', 'tr', 'tt-toggle--watch');
+  if (!button) actionsEl.appendChild(btn);
 
-// Movies are watched as a single unit. `watchedMovieIds` is a Set fetched once per page
-// so every card's initial state is known without a fetch per card. `onChange`, if given,
-// is called after a successful toggle so pages showing "your watched items" can refresh.
-function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
-  const button = document.createElement('button');
-  button.className = 'card-action watched-btn card-action-tr';
-  button.type = 'button';
-  button.innerHTML = eyeIconSvg();
-
-  const unreleased = isUnreleased(item.releaseDate);
-  if (unreleased) {
-    button.disabled = true;
-    button.title = 'Not yet released';
-    actionsEl.appendChild(button);
+  if (isUnreleased(item.releaseDate)) {
+    btn.disabled = true;
+    btn.setAttribute('aria-label', `${item.title} isn't out yet`);
     return;
   }
-  button.title = 'Mark as watched';
 
-  const syncVisual = () => button.classList.toggle('active', watchedMovieIds.has(item.tmdbId));
-  syncVisual();
+  const sync = () => {
+    const on = watchedMovieIds.has(item.tmdbId);
+    btn.setOn(on);
+    btn.setAttribute('aria-label', `${on ? 'Unmark' : 'Mark'} ${item.title} as watched`);
+  };
+  sync();
 
-  button.addEventListener('click', async event => {
+  btn.addEventListener('click', async event => {
     event.stopPropagation();
-    const user = await getCurrentUser();
-    if (!user) {
-      window.location.href = 'profile-picker.html';
-      return;
-    }
+    if (!(await ensureProfileOrRedirect())) return;
 
-    const alreadyWatched = watchedMovieIds.has(item.tmdbId);
     const url = `/api/watched/movies/${item.tmdbId}`;
-    if (alreadyWatched) {
+    if (watchedMovieIds.has(item.tmdbId)) {
       await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
       watchedMovieIds.delete(item.tmdbId);
     } else {
-      // Sends the display fields the caller already has in hand (title/poster/etc) so
-      // localApi.js can store them alongside the id - the Profile page's watched-movies
-      // preview can then render straight from IndexedDB instead of re-fetching TMDB per item.
+      // Sends the display fields the card already has, so localApi.js can store them with the
+      // id and watched lists render straight from IndexedDB.
       await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
@@ -528,64 +692,31 @@ function attachWatchedButton(actionsEl, item, watchedMovieIds, onChange) {
       });
       watchedMovieIds.add(item.tmdbId);
     }
-    syncVisual();
+    sync();
     if (onChange) onChange();
   });
-
-  actionsEl.appendChild(button);
 }
 
 function favoriteKey(item) {
   return `${item.mediaType}:${item.tmdbId}`;
 }
 
-// Fetches the current user's watched-movie ids and favorite ids once per page,
-// so every card's initial button state is known without a fetch per card.
-async function fetchStandardActionContext() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { watchedMovieIds: new Set(), favoriteIds: new Set() };
-  }
-
-  const [watchedMovies, favoriteIdsByType] = await Promise.all([
-    fetch('/api/watched/movies', { credentials: 'same-origin' }).then(r => r.json()),
-    fetch('/api/favorites/ids', { credentials: 'same-origin' }).then(r => r.json()),
-  ]);
-
-  const favoriteIds = new Set([
-    ...favoriteIdsByType.movie.map(id => `movie:${id}`),
-    ...favoriteIdsByType.tv.map(id => `tv:${id}`),
-  ]);
-
-  return { watchedMovieIds: new Set(watchedMovies), favoriteIds };
-}
-
-function heartIconSvg() {
-  return '<svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor"><path d="M480-120 240-296q-99-72-159.5-142.5T20-580q0-90 61-150t149-60q56 0 105 26.5t105 79.5q56-53 105-79.5T650-790q88 0 149 60t61 150q0 79-60.5 149.5T740-296L480-120Z"/></svg>';
-}
-
-function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
-  const button = document.createElement('button');
-  button.className = 'card-action favorite-btn card-action-bl';
-  button.type = 'button';
-  button.title = 'Favorite';
-  button.innerHTML = heartIconSvg();
-
+function attachFavoriteButton(actionsEl, item, favoriteIds, onChange, { button = null } = {}) {
+  const btn = button || buildToggle('heart', 'bl', 'tt-toggle--fav');
   const key = favoriteKey(item);
-  const syncVisual = () => button.classList.toggle('active', favoriteIds.has(key));
-  syncVisual();
+  const sync = () => {
+    const on = favoriteIds.has(key);
+    btn.setOn(on);
+    btn.setAttribute('aria-label', `${on ? 'Remove' : 'Add'} ${item.title} ${on ? 'from' : 'to'} favourites`);
+  };
+  sync();
 
-  button.addEventListener('click', async event => {
+  btn.addEventListener('click', async event => {
     event.stopPropagation();
-    const user = await getCurrentUser();
-    if (!user) {
-      window.location.href = 'profile-picker.html';
-      return;
-    }
+    if (!(await ensureProfileOrRedirect())) return;
 
-    const isFavorite = favoriteIds.has(key);
     const url = `/api/favorites/${item.mediaType}/${item.tmdbId}`;
-    if (isFavorite) {
+    if (favoriteIds.has(key)) {
       await fetch(url, { method: 'DELETE', credentials: 'same-origin' });
       favoriteIds.delete(key);
     } else {
@@ -597,25 +728,123 @@ function attachFavoriteButton(actionsEl, item, favoriteIds, onChange) {
       });
       favoriteIds.add(key);
     }
-    syncVisual();
+    sync();
     if (onChange) onChange();
   });
 
-  actionsEl.appendChild(button);
+  if (!button) actionsEl.appendChild(btn);
 }
 
-// Attaches the standard set of card actions (save, favorite, watched) used consistently
-// across Home, Bookmarks, Lists, and Profile. Shows don't get a quick watched toggle here —
-// per-episode tracking lives on the detail page (click the card to open it). Rating lives
-// only on the detail page as a star widget, not here. `onChange`, if given, fires after any
-// toggle so a page showing "your watched/favorited items" can refresh itself.
+// Fetches the active profile's watched-movie ids, favourite ids and Watchlist contents once
+// per page, so every card's toggle state is known without a request per card.
+async function fetchStandardActionContext() {
+  const empty = { watchedMovieIds: new Set(), favoriteIds: new Set(), watchlistKeys: new Set(), watchlistId: null };
+  const user = await getCurrentUser();
+  if (!user) return empty;
+
+  const [watchedMovies, favoriteIdsByType, lists] = await Promise.all([
+    fetchJson('/api/watched/movies'),
+    fetchJson('/api/favorites/ids'),
+    fetchJson('/api/lists'),
+  ]);
+
+  const favoriteIds = new Set([
+    ...favoriteIdsByType.movie.map(id => `movie:${id}`),
+    ...favoriteIdsByType.tv.map(id => `tv:${id}`),
+  ]);
+
+  const watchlist = lists.find(l => l.is_default);
+  const watchlistItems = watchlist ? await fetchJson(`/api/lists/${watchlist.id}/items`) : [];
+
+  return {
+    watchedMovieIds: new Set(watchedMovies),
+    favoriteIds,
+    watchlistKeys: new Set(watchlistItems.map(watchlistKey)),
+    watchlistId: watchlist ? watchlist.id : null,
+  };
+}
+
+// The standard toggles on a poster: watched (movies only - shows are tracked per episode on
+// their page), favourite, and save. `onChange` fires after a watched/favourite toggle.
 function attachStandardActions(card, item, context, { includeSave = true, onChange } = {}) {
-  if (includeSave) attachSaveButton(card.overlayActionsEl, item);
-  attachFavoriteButton(card.overlayActionsEl, item, context.favoriteIds, onChange);
   if (item.mediaType === 'movie') {
     attachWatchedButton(card.overlayActionsEl, item, context.watchedMovieIds, onChange);
   }
+  attachFavoriteButton(card.overlayActionsEl, item, context.favoriteIds, onChange);
+  if (includeSave) attachSaveButton(card.overlayActionsEl, item, context);
 }
+
+// ---------- Dialogs ----------
+
+function openDialog() {
+  const overlay = el('div', 'confirm-overlay');
+  const modal = el('div', 'confirm-modal');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  return { overlay, modal };
+}
+
+function dialogButton(label, variant) {
+  const btn = el('button', `tt-btn tt-btn--${variant}`, label);
+  btn.type = 'button';
+  return btn;
+}
+
+// Yes/no dialog. Resolves true when confirmed.
+function confirmDialog({ title = null, message, confirmLabel = 'OK', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise(resolve => {
+    const { overlay, modal } = openDialog();
+    if (title) modal.appendChild(el('h2', null, title));
+    modal.appendChild(el('p', null, message));
+    const actions = el('div', 'confirm-actions');
+    const close = result => { overlay.remove(); resolve(result); };
+    const cancel = dialogButton(cancelLabel, 'secondary');
+    cancel.addEventListener('click', () => close(false));
+    const ok = dialogButton(confirmLabel, danger ? 'danger' : 'primary');
+    ok.addEventListener('click', () => close(true));
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    modal.appendChild(actions);
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(false); });
+  });
+}
+
+// Asks for one line of text. Resolves the trimmed text, or null when cancelled.
+function promptDialog({ title, label, placeholder = '', confirmLabel = 'Save', value = '' }) {
+  return new Promise(resolve => {
+    const { overlay, modal } = openDialog();
+    const form = el('form', 'auth-form');
+    form.appendChild(el('h2', null, title));
+    const field = el('label', 'field', label);
+    const input = el('input', 'text-input');
+    input.type = 'text';
+    input.placeholder = placeholder;
+    input.value = value;
+    input.required = true;
+    field.appendChild(input);
+    form.appendChild(field);
+    const actions = el('div', 'confirm-actions');
+    const close = result => { overlay.remove(); resolve(result); };
+    const cancel = dialogButton('Cancel', 'secondary');
+    cancel.addEventListener('click', () => close(null));
+    const ok = dialogButton(confirmLabel, 'primary');
+    ok.type = 'submit';
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    form.appendChild(actions);
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      if (input.value.trim()) close(input.value.trim());
+    });
+    modal.appendChild(form);
+    overlay.addEventListener('click', event => { if (event.target === overlay) close(null); });
+    input.focus();
+  });
+}
+
+// ---------- Stats ----------
 
 function formatWatchTime(totalMinutes) {
   const totalHours = Math.floor(totalMinutes / 60);
@@ -628,33 +857,25 @@ function formatWatchTime(totalMinutes) {
   return `${totalHours}h ${minutes}m`;
 }
 
-// Summary stat tiles from GET /api/stats - the Profile page's Stats box and the top of stats.html.
-function renderStatTiles(grid, stats) {
+// Summary tiles from GET /api/stats: five tiles, watch time spanning two columns. `layout`
+// 'profile' is the Profile page's order; 'stats' leads with episodes and watch time.
+function renderStatTiles(grid, stats, { layout = 'profile' } = {}) {
   grid.innerHTML = '';
-
-  const tiles = [
-    { label: 'Movies Watched', value: stats.moviesWatched },
-    { label: 'Shows Tracked', value: stats.showsTracked },
-    { label: 'Episodes Watched', value: stats.episodesWatched },
-    { label: 'Total Watch Time', value: formatWatchTime(stats.totalWatchMinutes) },
-    { label: 'Favorites', value: stats.favorites },
-    { label: 'Avg Rating Given', value: stats.averageRating != null ? `${stats.averageRating}/10` : '—' },
-  ];
-
-  tiles.forEach(tile => {
-    const tileEl = document.createElement('div');
-    tileEl.className = 'stat-tile';
-
-    const valueEl = document.createElement('div');
-    valueEl.className = 'stat-value';
-    valueEl.textContent = tile.value;
-
-    const labelEl = document.createElement('div');
-    labelEl.className = 'stat-label';
-    labelEl.textContent = tile.label;
-
-    tileEl.appendChild(valueEl);
-    tileEl.appendChild(labelEl);
-    grid.appendChild(tileEl);
-  });
+  const watchTime = formatWatchTime(stats.totalWatchMinutes);
+  const tiles = layout === 'stats'
+    ? [
+      [stats.episodesWatched, 'Episodes watched'],
+      [stats.moviesWatched, 'Movies watched'],
+      [stats.showsTracked, 'Shows tracked'],
+      [watchTime, 'Watch time', { wide: true }],
+      [stats.favorites, 'Favourites'],
+    ]
+    : [
+      [stats.moviesWatched, 'Movies watched'],
+      [stats.showsTracked, 'Shows tracked'],
+      [stats.episodesWatched, 'Episodes watched'],
+      [watchTime, 'Total watch time', { wide: true }],
+      [stats.favorites, 'Favourites'],
+    ];
+  tiles.forEach(([value, label, opts]) => grid.appendChild(buildStatTile(value, label, opts)));
 }

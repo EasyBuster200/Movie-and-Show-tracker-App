@@ -37,13 +37,13 @@ function openForm(profile, { restorePayload = null } = {}) {
   if (restorePayload) {
     form.displayName.value = restorePayload.profile.displayName;
     form.tmdbApiKey.value = legacyBackupApiKey(restorePayload) || '';
-    formSubmitBtn.textContent = 'Restore Backup';
+    formSubmitBtn.textContent = 'Restore backup';
     formHintEl.textContent = "Backups don't include your TMDB key, so enter it to finish restoring.";
     formHintEl.hidden = false;
   } else {
     form.displayName.value = profile ? profile.displayName : '';
     form.tmdbApiKey.value = profile ? profile.tmdbApiKey : '';
-    formSubmitBtn.textContent = profile ? 'Save Changes' : 'Create Profile';
+    formSubmitBtn.textContent = profile ? 'Save changes' : 'Create profile';
     formHintEl.hidden = true;
   }
 
@@ -70,7 +70,7 @@ function selectProfile(profile) {
 
 function deleteProfileWithConfirm(profile, event) {
   event.stopPropagation();
-  const confirmed = window.confirm(`Delete "${profile.displayName}" and all of its watched/list/rating data? This can't be undone.`);
+  const confirmed = window.confirm(`Delete "${profile.displayName}" and all of its watched and list data? This can't be undone.`);
   if (!confirmed) return;
   deleteProfile(profile.id);
   renderProfiles();
@@ -105,7 +105,7 @@ function renderProfiles() {
 
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
-    deleteBtn.className = 'profile-row-action';
+    deleteBtn.className = 'profile-row-action profile-row-action-danger';
     deleteBtn.textContent = 'Delete';
     deleteBtn.addEventListener('click', event => deleteProfileWithConfirm(profile, event));
 

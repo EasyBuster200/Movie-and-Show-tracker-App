@@ -1,0 +1,16 @@
+<!-- @dsCard group="Inputs" height=80 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<style>body{margin:0;background:var(--bg-page);font-family:var(--font-sans);color:var(--text-primary)}</style>
+</head>
+<body>
+<div id="root" class="tt-root" style="padding:16px"></div>
+<script>
+var h = React.createElement, T = window.TVTracker;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'flex',gap:8}},h(T.Chip,{label:'All',count:6,selected:true}),h(T.Chip,{label:'Shows',count:3}),h(T.Chip,{label:'Movies',count:3}),h(T.Chip,{label:'Drama',check:true,selected:true})));
+</script>
+</body>
+</html>

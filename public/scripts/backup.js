@@ -10,7 +10,9 @@
 // (profile-picker.js) or reuses the current profile's (profile.js). Version 1 backups, made
 // before this change, did include it - restoring still accepts those (legacyBackupApiKey).
 
-const BACKUP_STORE_NAMES = ['lists', 'list_items', 'watched_movies', 'watched_episodes', 'favorites', 'ratings'];
+// Ratings were removed from the app: new backups don't have them, and old backups' `ratings`
+// are ignored when restoring.
+const BACKUP_STORE_NAMES = ['lists', 'list_items', 'watched_movies', 'watched_episodes', 'favorites'];
 const BACKUP_FORMAT_VERSION = 2;
 
 async function buildBackupPayload(profile) {

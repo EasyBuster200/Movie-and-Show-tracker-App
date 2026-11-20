@@ -15,7 +15,7 @@ web code: pages load their scripts with ordinary `<script>` tags.
   `/api/...` requests locally, so the pages are written as if there were a server.
   - `/api/tmdb/*` requests go straight to [TMDB](https://developer.themoviedb.org/docs), using
     the active profile's own API Read Access Token as a bearer token.
-  - Everything else (lists, watched, ratings, favorites, stats, recommendations, schedule) reads
+  - Everything else (lists, watched, favorites, stats, recommendations, schedule) reads
     and writes the active profile's own IndexedDB database (`localDb.js`), one database per
     profile.
   - TMDB calls are rate-limited, retried, de-duplicated and, for movie/show details and credits,
@@ -25,8 +25,12 @@ web code: pages load their scripts with ordinary `<script>` tags.
 - **Backups** (`backup.js`) are a JSON export of a profile's database, without the TMDB token.
   `autoBackup.js` writes one per profile per week to the phone's public `Documents/Watchlog`
   folder.
+- **Settings** (`settings.js`) are kept per profile on its registry entry (`profiles.js`):
+  theme and accent (applied before paint by `theme.js`), region and TMDB language, the three
+  notification switches and auto-backup.
 - **Notifications** (`notifications.js`) use `@capacitor/local-notifications` to schedule
-  new-episode notifications when the app opens. A native daily job keeps them coming without
+  new-episode notifications, release reminders for Watchlist movies and a weekly recap when the
+  app opens. A native daily job keeps them coming without
   opening the app: `android/.../WatchlogBackgroundPlugin.java` + `EpisodeCheckWorker.java`,
   which use WorkManager.
 
@@ -63,7 +67,7 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 `npm run open:android` opens the project in Android Studio instead.
 
 **Versioning:** `versionCode` is the number of commits on the current branch
-(`git rev-list --count HEAD`), and `versionName` is `1.<that number>`. Every build from a newer
+(`git rev-list --count HEAD`), and `versionName` is `2.<that number>` (the 2.x series is the redesign; 1.x was the original design, up to 1.61). Every build from a newer
 commit is a higher version, so it installs as an update and keeps the app's data.
 
 ### Signing
@@ -97,7 +101,9 @@ Without the properties file, release builds come out unsigned and can't be insta
 
 The app is a static site until Capacitor wraps it, so most of it can be developed in a browser:
 serve `public/` with any static file server (`.claude/launch.json` has an `npx serve public`
-configuration) and open `profile-picker.html` to create a profile. Native-only features (the
+configuration) and open `profile-picker.html` to create a profile. Turn off "clean URLs" if your
+server has them (`serve.json` does this for `npx serve`): pages pass their parameters in the query
+string, and a redirect from `page.html?id=1` to `/page` would drop it. Native-only features (the
 Share sheet for exporting backups, the weekly backup file, notifications, the hardware back
 button) need the real Android build.
 
@@ -123,12 +129,12 @@ so every release must attach the APK under exactly the name **`Watchlog.apk`**.
 
 1. Commit and push everything (the version number comes from the commit count).
 2. Build the signed release APK (see [Build](#build)), and note its version. `versionName` is
-   `1.<commit count>`.
+   `2.<commit count>`.
 3. Copy it to `Watchlog.apk` and create the release, tagged with that version:
 
    ```bash
    cp android/app/build/outputs/apk/release/app-release.apk Watchlog.apk
-   gh release create v1.<N> Watchlog.apk --title "Watchlog 1.<N>" --notes "What changed..."
+   gh release create v2.<N> Watchlog.apk --title "Watchlog 2.<N>" --notes "What changed..."
    ```
 
 Users then download the new APK and install it over the old one; their data is kept.
@@ -137,19 +143,23 @@ Users then download the new APK and install it over the old one; their data is k
 
 ```
 public/            the whole app, loaded into Capacitor's WebView
-  *.html           one page per screen (main, movies, shows, detail, person, airing-soon,
-                   stats, lists, bookmarks, profile, profile-picker, ...)
+  *.html           one page per screen (main, movies, shows, detail, episodes, person,
+                   airing-soon, stats, lists, bookmarks (the Watchlist), media-list (every
+                   "See all"), search, profile, settings, licences, profile-picker)
   scripts/         localApi.js (the fetch shim / local "server"), localDb.js (IndexedDB),
                    profiles.js, standardItem.js (shared item shape), media.js (shared UI
-                   components), backup.js, autoBackup.js, notifications.js, one script per page,
-                   vendor/ (Capacitor core and plugins as plain scripts)
-  styles/          style.css (whole app), profile-picker.css
+                   components), browse.js (Movies/Shows filter & sort), theme.js (theme and
+                   accent, applied before paint), backup.js,
+                   autoBackup.js, notifications.js, one script per page, vendor/ (Capacitor
+                   core and plugins as plain scripts)
+  styles/          tokens.css (design tokens), style.css (components and screens)
 android/           Capacitor's native Android project. Hand-written parts: MainActivity.java,
                    WatchlogBackgroundPlugin.java, EpisodeCheckWorker.java, app/build.gradle
                    (versioning and signing), the launcher and notification icons
 tests/             Node test suite (npm test)
-docs/              this guide, screenshots/, icons/ (Material Symbols reference SVGs and the
-                   app icon artwork)
+docs/              this guide, design/ (the design system's tokens.json and reference
+                   component CSS), screenshots/, icons/ (Material Symbols reference SVGs and
+                   the app icon artwork)
 CLAUDE.md          detailed architecture reference
 ```
 

@@ -89,13 +89,14 @@ test('switching profile reschedules immediately for the new profile', async () =
   assert.deepEqual(app.notifications.state.pending, [], "the previous profile's notifications are gone");
 });
 
-test('turning notifications off cancels them; no active profile clears them too', async () => {
+test('turning every kind of notification off cancels them; no active profile clears them too', async () => {
   const app = createApp({ native: true, tmdb: { '/tv/10': show(10, next('2026-11-15')) } });
   await trackShows(app, [10]);
   await app.call('refreshEpisodeNotifications', { now: NOW });
   assert.equal(app.notifications.state.pending.length, 1);
 
   app.run('setEpisodeNotificationsEnabled(false)');
+  app.run("setProfilePrefs(getActiveProfileId(), { releaseReminders: false, weeklyRecap: false })");
   assert.equal((await app.call('refreshEpisodeNotifications', { now: NOW })).status, 'disabled');
   assert.deepEqual(app.notifications.state.pending, []);
 

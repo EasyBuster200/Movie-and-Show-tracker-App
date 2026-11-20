@@ -1,9 +1,18 @@
+// The search field's typeahead (Home, Movies, Shows, Search): results drop down under it as
+// you type, and Enter opens the full results page. The input's `data-search-type` ("movie" or
+// "tv") limits it to one kind, as on the Movies and Shows pages.
 const SEARCH_DEBOUNCE_MS = 300;
+
+function searchEndpoint(query, type) {
+  const q = encodeURIComponent(query);
+  return type ? `/api/tmdb/search/${type}?query=${q}` : `/api/tmdb/search/multi?query=${q}`;
+}
 
 function initSearchBar() {
   const input = document.getElementById('search-input');
   const resultsEl = document.getElementById('search-results');
   if (!input || !resultsEl) return;
+  const type = input.dataset.searchType || '';
 
   let debounceTimer = null;
   let activeController = null;
@@ -16,24 +25,19 @@ function initSearchBar() {
   async function runSearch(query) {
     if (activeController) activeController.abort();
     activeController = new AbortController();
-
     try {
-      const response = await fetch(`/api/tmdb/search/multi?query=${encodeURIComponent(query)}`, {
+      const response = await fetch(searchEndpoint(query, type), {
         credentials: 'same-origin',
         signal: activeController.signal,
       });
       const data = await response.json();
-      renderResults(data.results || []);
+      // Single-type searches don't tag results with media_type; add it.
+      const results = (data.results || []).map(r => (type ? { ...r, media_type: type } : r));
+      renderSearchResultRows(resultsEl, results, null, { includePersons: !type, limit: 6 });
+      resultsEl.hidden = false;
     } catch (error) {
       if (error.name !== 'AbortError') console.error('Search failed:', error);
     }
-  }
-
-  function renderResults(rawResults) {
-    renderSearchResultRows(resultsEl, rawResults, item => {
-      window.location.href = item.mediaType === 'person' ? personUrl(item) : detailUrl(item);
-    }, { includePersons: true });
-    resultsEl.hidden = false;
   }
 
   input.addEventListener('input', () => {
@@ -50,7 +54,9 @@ function initSearchBar() {
     if (event.key !== 'Enter') return;
     const query = input.value.trim();
     if (!query) return;
-    window.location.href = `search.html?q=${encodeURIComponent(query)}`;
+    const params = new URLSearchParams({ q: query });
+    if (type) params.set('type', type);
+    window.location.href = `search.html?${params.toString()}`;
   });
 
   document.addEventListener('click', event => {

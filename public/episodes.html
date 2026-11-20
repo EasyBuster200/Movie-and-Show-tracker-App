@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Episodes</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/theme.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
+  <script type="text/javascript" src="scripts/standardItem.js" defer></script>
+  <script type="text/javascript" src="scripts/localDb.js" defer></script>
+  <script type="text/javascript" src="scripts/localApi.js" defer></script>
+  <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/backup.js" defer></script>
+  <script type="text/javascript" src="scripts/autoBackup.js" defer></script>
+  <script type="text/javascript" src="scripts/notifications.js" defer></script>
+  <script type="text/javascript" src="scripts/auth.js" defer></script>
+  <script type="text/javascript" src="scripts/media.js" defer></script>
+  <script type="text/javascript" src="scripts/episodes.js" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header__row">
+      <button type="button" class="tt-back" data-back="main.html" aria-label="Back">
+        <svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+      </button>
+      <div class="page-header__titles">
+        <span class="page-header__eyebrow" id="show-title">&nbsp;</span>
+        <h1 id="season-title">&nbsp;</h1>
+      </div>
+      <span class="page-header__aside" id="season-count"></span>
+    </div>
+    <div id="season-progress"></div>
+  </header>
+  <main class="page-body" id="episode-list"></main>
+  <nav class="tt-nav" data-active="shows"></nav>
+</body>
+</html>

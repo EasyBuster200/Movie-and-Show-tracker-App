@@ -15,7 +15,6 @@ async function seedSomeData(app) {
   await app.api('POST', '/api/watched/movies/1', { title: 'Movie 1', year: '2020' });
   await app.api('POST', '/api/watched/shows/10/season/1/episode/1');
   await app.api('POST', '/api/favorites/tv/10', { title: 'Show 10' });
-  await app.api('PUT', '/api/ratings/movie/1', { rating: 8 });
 }
 
 // --- export / restore -------------------------------------------------------------------------
@@ -32,7 +31,7 @@ test('a backup contains every data store but never the TMDB API key', async () =
   assert.equal(payload.data.watched_movies.length, 1);
   assert.equal(payload.data.watched_episodes.length, 1);
   assert.equal(payload.data.favorites.length, 1);
-  assert.equal(payload.data.ratings.length, 1);
+  assert.equal(payload.data.ratings, undefined, 'ratings are no longer part of the app');
   assert.deepEqual(payload.data.lists.map(l => l.name).sort(), ['Bookmarks', 'Horror']);
   assert.equal(payload.data.list_items.length, 1);
 });
@@ -55,7 +54,24 @@ test('restoring creates a new profile with the given key and identical data', as
   // The restored profile is fully usable through the normal API.
   app.run(`setActiveProfileId(${JSON.stringify(restored.id)}); dbPromise = null;`);
   assert.deepEqual((await app.api('GET', '/api/watched/movies')).body, [1]);
-  assert.deepEqual((await app.api('GET', '/api/ratings/movie/1')).body, { rating: 8 });
+});
+
+test('an old backup that still has ratings restores, and the ratings are dropped', async () => {
+  const app = createApp();
+  const data = {
+    lists: [{ id: 1, name: 'Bookmarks', isDefault: true, createdAt: new Date(0).toISOString() }],
+    list_items: [],
+    watched_movies: [{ tmdbId: 5, watchedAt: new Date().toISOString() }],
+    watched_episodes: [],
+    favorites: [],
+    ratings: [{ key: 'movie:5', mediaType: 'movie', tmdbId: 5, rating: 9 }],
+  };
+  const payload = app.run(`parseBackupText(${JSON.stringify(JSON.stringify({ app: 'tvtimeclone', backupVersion: 2, profile: { displayName: 'Old' }, data }))})`);
+  const restored = await app.call('restoreBackup', payload, { displayName: 'Old', tmdbApiKey: 'k' });
+  app.run(`setActiveProfileId(${JSON.stringify(restored.id)}); dbPromise = null;`);
+  assert.deepEqual((await app.api('GET', '/api/watched/movies')).body, [5]);
+  const stores = await app.run('getDb().then(db => [...db.objectStoreNames])');
+  assert.ok(!plain(stores).includes('ratings'));
 });
 
 test('parseBackupText rejects things that are not backups', async () => {

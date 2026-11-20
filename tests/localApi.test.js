@@ -145,22 +145,25 @@ test('favorites: POST/ids/list/DELETE round trip', async () => {
   assert.deepEqual((await api('GET', '/api/favorites/ids')).body, { movie: [], tv: [2] });
 });
 
-// --- ratings --------------------------------------------------------------------------------
-
-test('ratings: only integers 1-10 are accepted', async () => {
-  const { api } = createApp();
-  for (const bad of [0, 11, 5.5, 'x']) {
-    assert.equal((await api('PUT', '/api/ratings/movie/1', { rating: bad })).status, 400, `rating ${bad}`);
-  }
-  assert.equal((await api('PUT', '/api/ratings/movie/1', { rating: 7 })).status, 200);
-  assert.deepEqual((await api('GET', '/api/ratings/movie/1')).body, { rating: 7 });
-  await api('DELETE', '/api/ratings/movie/1');
-  assert.deepEqual((await api('GET', '/api/ratings/movie/1')).body, { rating: null });
-});
-
 // --- stats ----------------------------------------------------------------------------------
 
-test('stats: totals, watch time (with 30m default episode runtime) and average rating', async () => {
+test('the ratings store is removed from databases created before ratings were dropped', async () => {
+  const { context, run } = createApp({ withProfile: false });
+  // A v2 database, as the app created it while ratings existed.
+  await new Promise((resolve, reject) => {
+    const request = context.indexedDB.open('tvtc-profile-old', 2);
+    request.onupgradeneeded = () => {
+      request.result.createObjectStore('ratings', { keyPath: 'key' });
+      request.result.createObjectStore('tmdb_cache', { keyPath: 'key' });
+    };
+    request.onsuccess = () => { request.result.close(); resolve(); };
+    request.onerror = () => reject(request.error);
+  });
+  const stores = await run("openProfileDb('old').then(db => { const names = [...db.objectStoreNames]; db.close(); return names; })");
+  assert.ok(!JSON.parse(JSON.stringify(stores)).includes('ratings'));
+});
+
+test('stats: totals and watch time (with 30m default episode runtime)', async () => {
   const { api } = createApp({
     tmdb: {
       '/movie/1': movie(1, { runtime: 120 }),
@@ -175,17 +178,12 @@ test('stats: totals, watch time (with 30m default episode runtime) and average r
   await api('POST', '/api/watched/shows/10/season/1/episode/2');
   await api('POST', '/api/watched/shows/20/season/1/episode/1');
   await api('POST', '/api/favorites/movie/1');
-  await api('PUT', '/api/ratings/movie/1', { rating: 7 });
-  await api('PUT', '/api/ratings/movie/2', { rating: 8 });
-  await api('PUT', '/api/ratings/tv/10', { rating: 8 });
 
   assert.deepEqual((await api('GET', '/api/stats')).body, {
     moviesWatched: 2,
     showsTracked: 2,
     episodesWatched: 3,
     favorites: 1,
-    ratingsGiven: 3,
-    averageRating: 7.7,
     totalWatchMinutes: 120 + 45 * 2 + 30,
   });
 });

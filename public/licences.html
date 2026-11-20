@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Licences</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/theme.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
+  <script type="text/javascript" src="scripts/standardItem.js" defer></script>
+  <script type="text/javascript" src="scripts/localDb.js" defer></script>
+  <script type="text/javascript" src="scripts/localApi.js" defer></script>
+  <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/backup.js" defer></script>
+  <script type="text/javascript" src="scripts/autoBackup.js" defer></script>
+  <script type="text/javascript" src="scripts/notifications.js" defer></script>
+  <script type="text/javascript" src="scripts/auth.js" defer></script>
+  <script type="text/javascript" src="scripts/media.js" defer></script>
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header__row">
+      <button type="button" class="tt-back" data-back="settings.html" aria-label="Back to Settings">
+        <svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+      </button>
+      <div class="page-header__titles"><h1>Licences</h1></div>
+    </div>
+  </header>
+  <main class="page-body">
+    <div class="settings-card">
+      <div class="licence">
+        <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer"><img src="images/tmdb-logo.svg" alt="TMDB" style="width: 96px"></a>
+        <span class="licence__name">The Movie Database (TMDB)</span>
+        <p class="licence__text">This app uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. All movie and show information and images come from TMDB.</p>
+      </div>
+    </div>
+
+    <span class="tt-filter-label" style="margin-top: var(--space-3)">Open-source software</span>
+    <div class="settings-card">
+      <div class="licence">
+        <span class="licence__name">Poppins</span>
+        <p class="licence__text">Typeface by Indian Type Foundry. SIL Open Font License 1.1.</p>
+      </div>
+      <div class="licence">
+        <span class="licence__name">Capacitor</span>
+        <p class="licence__text">The app's Android wrapper, by Ionic (@capacitor/core, @capacitor/android). MIT License.</p>
+      </div>
+      <div class="licence">
+        <span class="licence__name">Capacitor plugins</span>
+        <p class="licence__text">@capacitor/filesystem (backups), @capacitor/share (exporting), @capacitor/local-notifications (notifications), by Ionic. MIT License.</p>
+      </div>
+      <div class="licence">
+        <span class="licence__name">AndroidX</span>
+        <p class="licence__text">Android Jetpack libraries, including WorkManager (the daily episode check), by Google. Apache License 2.0.</p>
+      </div>
+    </div>
+  </main>
+  <nav class="tt-nav" data-active="profile"></nav>
+</body>
+</html>

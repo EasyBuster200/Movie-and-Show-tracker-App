@@ -1,0 +1,17 @@
+<!-- @dsCard group="Foundations" height=96 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<style>body{margin:0;background:var(--bg-page);font-family:var(--font-sans);color:var(--text-primary)}</style>
+</head>
+<body>
+<div id="root" class="tt-root" style="padding:16px"></div>
+<script>
+var h = React.createElement, T = window.TVTracker;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'flex',flexWrap:'wrap',gap:16,color:'var(--text-secondary)'}},
+  ['home','bookmark','folder','film','tv','user','eye','heart','search','back','check','star','chevron','play','more','cloud','close','plus'].map(function(n){return h(T.Icon,{key:n,name:n});})));
+</script>
+</body>
+</html>

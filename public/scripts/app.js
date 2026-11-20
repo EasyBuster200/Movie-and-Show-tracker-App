@@ -1,87 +1,88 @@
-// Base URLs for the trending endpoints (proxied through our own backend so the TMDB token stays server-side)
-const MOVIE_API_URL = '/api/tmdb/trending/movie/day?language=en-US';
-const TV_API_URL = '/api/tmdb/trending/tv/day?language=en-US';
+// Home: Continue Watching (shows in progress), Airing Soon (the next episodes of tracked
+// shows), then Trending Shows and Trending Movies.
+const HOME_ROW_LIMIT = 3;
 
-async function fetchTrending(context) {
-  await loadTrendingRow(MOVIE_API_URL, 'trending-movies');
-  await loadTrendingRow(TV_API_URL, 'trending-shows');
-
-  async function loadTrendingRow(baseUrl, containerId) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    container.innerHTML = '';
-
-    const loadNextPage = attachLoadMoreRow(
-      container,
-      page => fetch(`${baseUrl}&page=${page}`, { headers: { accept: 'application/json' } }).then(r => r.json()),
-      raw => {
-        if (raw.media_type === 'person') return null;
-        const item = toStandardItem(raw);
-        const card = buildCard(item);
-        attachStandardActions(card, item, context);
-        return card;
-      }
-    );
-    await loadNextPage();
-  }
-}
-
-function formatAirDate(airDate) {
-  if (!airDate) return null;
-  return new Date(airDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-async function loadAiringSoon(context) {
-  const container = document.getElementById('airing-soon');
-  const emptyEl = document.getElementById('airing-soon-empty');
-
-  function showEmpty(message) {
-    container.hidden = true;
-    emptyEl.hidden = false;
-    emptyEl.textContent = message;
-  }
-
-  container.hidden = false;
-  emptyEl.hidden = true;
-  renderSkeletonRow(container);
-
-  try {
-    const response = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' });
-    if (response.status === 401) {
-      showEmpty("Login and start tracking your favorite shows' next episode.");
-      return;
-    }
-
-    const shows = await response.json();
-    if (!Array.isArray(shows) || shows.length === 0) {
-      showEmpty('No new episodes.');
-      return;
-    }
-
-    container.hidden = false;
-    emptyEl.hidden = true;
-    container.innerHTML = '';
-
-    shows.forEach(item => {
+async function loadTrendingRow(mediaType, containerId, context) {
+  const container = document.getElementById(containerId);
+  await loadPosterRow(
+    container,
+    page => fetchJson(`/api/tmdb/trending/${mediaType}/day?language=en-US&page=${page}`),
+    raw => {
+      const item = toStandardItem(raw, mediaType);
       const card = buildCard(item);
-
-      const meta = document.createElement('p');
-      meta.className = 'card-meta';
-      const { seasonNumber, episodeNumber, airDate } = item.nextEpisode;
-      meta.textContent = `S${seasonNumber}E${episodeNumber} • Airs ${formatAirDate(airDate)}`;
-      card.infoEl.appendChild(meta);
-
       attachStandardActions(card, item, context);
-      container.appendChild(card);
+      return card;
+    }
+  );
+}
+
+async function loadContinueWatching() {
+  const container = document.getElementById('continue-watching');
+  container.innerHTML = '';
+  container.appendChild(buildSkeletonMediaRow());
+  try {
+    const shows = await fetchJson('/api/watched/shows?includeStatus=true');
+    // Only shows with aired episodes left that aren't dropped (localApi.js's computeShowStatus),
+    // most recently watched first.
+    const watching = shows
+      .filter(s => s.status === 'watching')
+      .sort((a, b) => (b.lastWatchedAt || '').localeCompare(a.lastWatchedAt || ''));
+
+    container.innerHTML = '';
+    if (watching.length === 0) {
+      container.appendChild(el('p', 'empty-note', 'Nothing in progress. Mark an episode watched on any show to see it here.'));
+      return;
+    }
+    watching.slice(0, HOME_ROW_LIMIT).forEach(show => {
+      const next = show.nextUnwatched;
+      container.appendChild(buildMediaRow({
+        href: detailUrl(show),
+        title: show.title,
+        meta: next ? `Next: S${next.seasonNumber} · E${next.episodeNumber}` : null,
+        imageSrc: thumbUrl(show.posterPath),
+        progress: { watched: show.watched, total: show.total },
+      }));
+    });
+  } catch (error) {
+    console.error('Failed to load continue watching:', error);
+    container.innerHTML = '';
+    container.appendChild(el('p', 'empty-note', "Couldn't load your shows."));
+  }
+}
+
+async function loadAiringSoon() {
+  const container = document.getElementById('airing-soon');
+  container.innerHTML = '';
+  container.appendChild(buildSkeletonMediaRow());
+  try {
+    const shows = await fetchJson('/api/watched/shows/upcoming');
+    container.innerHTML = '';
+    if (!Array.isArray(shows) || shows.length === 0) {
+      container.appendChild(el('p', 'empty-note', "No new episodes announced for the shows you're tracking."));
+      return;
+    }
+    shows.slice(0, HOME_ROW_LIMIT).forEach(show => {
+      const { seasonNumber, episodeNumber, airDate, name } = show.nextEpisode;
+      container.appendChild(buildAiringRow({
+        href: detailUrl(show),
+        title: show.title,
+        airDate,
+        seasonNumber,
+        episodeNumber,
+        episodeName: name,
+      }));
     });
   } catch (error) {
     console.error('Failed to load airing soon:', error);
-    showEmpty('No new episodes.');
+    container.innerHTML = '';
+    container.appendChild(el('p', 'empty-note', "Couldn't load upcoming episodes."));
   }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  loadContinueWatching();
+  loadAiringSoon();
   const context = await fetchStandardActionContext();
-  fetchTrending(context);
-  loadAiringSoon(context);
+  loadTrendingRow('tv', 'trending-shows', context);
+  loadTrendingRow('movie', 'trending-movies', context);
 });

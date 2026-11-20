@@ -1,0 +1,16 @@
+<!-- @dsCard group="Media" height=170 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<style>body{margin:0;background:var(--bg-page);font-family:var(--font-sans);color:var(--text-primary)}</style>
+</head>
+<body>
+<div id="root" class="tt-root" style="padding:16px"></div>
+<script>
+var h = React.createElement, T = window.TVTracker;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'flex',gap:12}},h(T.CastCard,{name:'Mara Ruiz',role:'Elena Shaw'}),h(T.CastCard,{name:'Tom Okafor',role:'Harbourmaster'}),h(T.CastCard,{name:'Ines Lund',role:'Nora Shaw'})));
+</script>
+</body>
+</html>

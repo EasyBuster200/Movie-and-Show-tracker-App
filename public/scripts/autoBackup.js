@@ -116,7 +116,10 @@ function runAutoBackups({ now = new Date(), force = false, profileIds = null } =
 
   autoBackupRunning = (async () => {
     const results = [];
-    const profiles = getProfiles().filter(p => !profileIds || profileIds.includes(p.id));
+    // Profiles with Settings > Auto-backup off are skipped, except for an explicit 'Back up now'.
+    const profiles = getProfiles()
+      .filter(p => !profileIds || profileIds.includes(p.id))
+      .filter(p => force || getProfilePrefs(p).autoBackup);
     for (const profile of profiles) {
       try {
         results.push({ profileId: profile.id, ...(await autoBackupProfile(profile, { now, force })) });

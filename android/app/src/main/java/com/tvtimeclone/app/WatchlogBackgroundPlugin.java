@@ -2,6 +2,7 @@ package com.tvtimeclone.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 
 import androidx.work.Constraints;
 import androidx.work.ExistingPeriodicWorkPolicy;
@@ -66,6 +67,21 @@ public class WatchlogBackgroundPlugin extends Plugin {
         WorkManager.getInstance(getContext()).enqueue(new OneTimeWorkRequest.Builder(EpisodeCheckWorker.class).build());
         JSObject result = new JSObject();
         result.put("queued", true);
+        call.resolve(result);
+    }
+
+    // The installed version (versionName/versionCode from app/build.gradle), shown at the bottom of
+    // Settings.
+    @PluginMethod
+    public void getAppInfo(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            PackageInfo info = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            result.put("versionName", info.versionName);
+            result.put("versionCode", info.versionCode);
+        } catch (Exception e) {
+            result.put("versionName", "");
+        }
         call.resolve(result);
     }
 }

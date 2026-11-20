@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Settings</title>
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/theme.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-share.js"></script>
+  <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
+  <script type="text/javascript" src="scripts/standardItem.js" defer></script>
+  <script type="text/javascript" src="scripts/localDb.js" defer></script>
+  <script type="text/javascript" src="scripts/localApi.js" defer></script>
+  <script type="text/javascript" src="scripts/profiles.js" defer></script>
+  <script type="text/javascript" src="scripts/backup.js" defer></script>
+  <script type="text/javascript" src="scripts/autoBackup.js" defer></script>
+  <script type="text/javascript" src="scripts/notifications.js" defer></script>
+  <script type="text/javascript" src="scripts/auth.js" defer></script>
+  <script type="text/javascript" src="scripts/media.js" defer></script>
+  <script type="text/javascript" src="scripts/settings.js" defer></script>
+</head>
+<body>
+  <main class="screen">
+    <div class="page-header__row">
+      <button type="button" class="tt-back" data-back="profile.html" aria-label="Back to Profile">
+        <svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+      </button>
+      <h1 class="screen-title">Settings</h1>
+    </div>
+
+    <button type="button" class="settings-profile" id="settings-profile">
+      <span class="settings-profile__avatar" id="settings-avatar" aria-hidden="true"></span>
+      <span class="settings-profile__text">
+        <span class="settings-profile__name" id="settings-name"></span>
+        <span class="settings-profile__sub">Local profile · Edit name and TMDB token</span>
+      </span>
+      <span class="list-row__chevron"><svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></span>
+    </button>
+
+    <section class="settings-section">
+      <span class="tt-filter-label">Appearance</span>
+      <div class="settings-card">
+        <div class="settings-block">
+          <span class="settings-block__title">Theme</span>
+          <div class="chip-wrap" role="group" aria-label="Theme" id="theme-chips"></div>
+        </div>
+        <div class="settings-block">
+          <div class="settings-block__head">
+            <span class="settings-block__title">Accent colour</span>
+            <span class="muted-note" id="accent-name"></span>
+          </div>
+          <div class="swatches" role="group" aria-label="Accent colour" id="accent-swatches"></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="settings-sections"></div>
+
+    <span class="app-version" id="app-version">Watchlog</span>
+    <input type="file" id="import-app-input" accept="application/json" hidden>
+  </main>
+  <nav class="tt-nav" data-active="profile"></nav>
+</body>
+</html>

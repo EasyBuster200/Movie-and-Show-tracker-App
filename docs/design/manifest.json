@@ -1,0 +1,128 @@
+{
+  "manifestVersion": 3,
+  "name": "TV Tracker",
+  "namespace": "TVTracker",
+  "files": [
+    "components/AiringRow/README.md",
+    "components/BackButton/README.md",
+    "components/BottomNav/README.md",
+    "components/Button/README.md",
+    "components/CastCard/README.md",
+    "components/Chip/README.md",
+    "components/EpisodeCard/README.md",
+    "components/Icon/README.md",
+    "components/MediaRow/README.md",
+    "components/PosterArt/README.md",
+    "components/PosterCard/README.md",
+    "components/ProgressBar/README.md",
+    "components/SearchField/README.md",
+    "components/SeasonRow/README.md",
+    "components/SectionHeader/README.md",
+    "components/StatTile/README.md",
+    "components/Switch/README.md",
+    "components/bundle.css",
+    "components/bundle.js",
+    "components/index.d.ts",
+    "tokens.css"
+  ],
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18",
+      "global": "React"
+    },
+    {
+      "name": "react-dom",
+      "version": "18",
+      "global": "ReactDOM"
+    }
+  ],
+  "components": [
+    {
+      "name": "Icon",
+      "group": "Foundations",
+      "summary": "Line icons on a 24px grid with a 1.8px round stroke, coloured by currentColor."
+    },
+    {
+      "name": "Button",
+      "group": "Actions",
+      "summary": "Buttons for actions: primary (accent fill) for the one main action on a screen, secondary (card with outline) for the rest, ghost for back/toolbar actions."
+    },
+    {
+      "name": "SearchField",
+      "group": "Inputs",
+      "summary": "The search input at the top of Home and the browse screens."
+    },
+    {
+      "name": "SectionHeader",
+      "group": "Layout",
+      "summary": "A section title with an optional trailing link, used above every carousel and list."
+    },
+    {
+      "name": "BackButton",
+      "group": "Navigation",
+      "summary": "The round back control at the top-left of every screen below the top level (show detail, season episodes, settings)."
+    },
+    {
+      "name": "PosterArt",
+      "group": "Media",
+      "summary": "The 2:3 artwork for a show or movie, used at every size so posters look identical across the app."
+    },
+    {
+      "name": "PosterCard",
+      "group": "Media",
+      "summary": "A 2:3 poster with watched, favourite and watchlist toggles, then a meta line and title; the main unit of every carousel."
+    },
+    {
+      "name": "MediaRow",
+      "group": "Media",
+      "summary": "A horizontal card for one show or movie: small poster, title, a meta line and optional watched progress, used for Continue Watching and list views."
+    },
+    {
+      "name": "AiringRow",
+      "group": "Media",
+      "summary": "One upcoming episode of a tracked show: a date tile, the show and episode, and when it airs; used in Home's Airing Soon list."
+    },
+    {
+      "name": "CastCard",
+      "group": "Media",
+      "summary": "One actor: a 4:5 headshot, their name and the character they play; shown in a sideways-scrolling Cast row on show and movie pages."
+    },
+    {
+      "name": "Chip",
+      "group": "Inputs",
+      "summary": "A pill-shaped filter toggle, used in rows to narrow a list (All / Shows / Movies on search results)."
+    },
+    {
+      "name": "Switch",
+      "group": "Inputs",
+      "summary": "An on/off toggle for settings that take effect immediately (notifications, auto-backup, hide watched)."
+    },
+    {
+      "name": "ProgressBar",
+      "group": "Feedback",
+      "summary": "A 6px rounded bar for watched progress (episodes in a show, a season)."
+    },
+    {
+      "name": "SeasonRow",
+      "group": "Lists",
+      "summary": "A tappable row for one season with its watched count; opens that season's episodes."
+    },
+    {
+      "name": "EpisodeCard",
+      "group": "Media",
+      "summary": "An episode with its still, number, title, air date, runtime, a two-line synopsis and a watched toggle."
+    },
+    {
+      "name": "StatTile",
+      "group": "Data",
+      "summary": "One number with a caption, laid out two per row on the Stats screen."
+    },
+    {
+      "name": "BottomNav",
+      "group": "Navigation",
+      "summary": "The six-tab bar at the bottom of every screen: Home, Watchlist, Lists, Movies, Shows, Profile."
+    }
+  ],
+  "assetGroups": []
+}

@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Profile</title>
+  <link rel="stylesheet" href="styles/tokens.css">
   <link rel="stylesheet" href="styles/style.css">
+  <script type="text/javascript" src="scripts/theme.js"></script>
   <script type="text/javascript" src="scripts/vendor/capacitor.js"></script>
   <script type="text/javascript" src="scripts/vendor/capacitor-filesystem.js"></script>
-  <script type="text/javascript" src="scripts/vendor/capacitor-share.js"></script>
   <script type="text/javascript" src="scripts/vendor/capacitor-local-notifications.js"></script>
   <script type="text/javascript" src="scripts/standardItem.js" defer></script>
   <script type="text/javascript" src="scripts/localDb.js" defer></script>
@@ -21,96 +22,54 @@
   <script type="text/javascript" src="scripts/profile.js" defer></script>
 </head>
 <body>
-  <nav id="sidebar">
-    <ul>
-      <li>
-        <a href="main.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M240-200h120v-240h240v240h120v-360L480-740 240-560v360Zm-80 80v-480l320-240 320 240v480H520v-240h-80v240H160Zm320-350Z"/></svg>
-          <span>Home</span>
+  <main class="screen">
+    <section class="profile-card" aria-label="Profile">
+      <div class="profile-card__main">
+        <div class="profile-card__avatar" id="profile-avatar" aria-hidden="true"></div>
+        <div class="profile-card__name">
+          <h1 id="profile-name"></h1>
+          <span class="screen-subtitle" id="profile-since"></span>
+        </div>
+        <a href="settings.html" class="tt-btn tt-btn--ghost tt-btn--icon profile-card__menu" aria-label="Settings">
+          <svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z"></path><path d="M3.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z"></path><path d="M17.5 12a1.5 1.5 0 1 0 3 0 1.5 1.5 0 1 0-3 0z"></path></svg>
         </a>
-      </li>
-      <li>
-        <a href="bookmarks.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M200-120v-640q0-33 23.5-56.5T280-840h400q33 0 56.5 23.5T760-760v640L480-240 200-120Zm80-122 200-86 200 86v-518H280v518Zm0-518h400-400Z"/></svg>
-          <span>Bookmarks</span>
-        </a>
-      </li>
-      <li>
-        <a href="lists.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>
-          <span>Lists</span>
-        </a>
-      </li>
-      <li>
-        <a href="movies.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M160-120v-720h80v80h80v-80h320v80h80v-80h80v720h-80v-80h-80v80H320v-80h-80v80h-80Zm80-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80Zm400 320h80v-80h-80v80Zm0-160h80v-80h-80v80Zm0-160h80v-80h-80v80ZM400-200h160v-560H400v560Zm0-560h160-160Z"/></svg>
-          <span>Movies</span>
-        </a>
-      </li>
-      <li>
-        <a href="shows.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M320-120v-80H160q-33 0-56.5-23.5T80-280v-480q0-33 23.5-56.5T160-840h640q33 0 56.5 23.5T880-760v480q0 33-23.5 56.5T800-200H640v80H320ZM160-280h640v-480H160v480Zm0 0v-480 480Z"/></svg>
-          <span>TV Shows</span>
-        </a>
-      </li>
-      <li class="active">
-        <a href="profile.html">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e3e3e3"><path d="M234-276q51-39 114-61.5T480-360q69 0 132 22.5T726-276q35-41 54.5-93T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 59 19.5 111t54.5 93Zm146.5-204.5Q340-521 340-580t40.5-99.5Q421-720 480-720t99.5 40.5Q620-639 620-580t-40.5 99.5Q539-440 480-440t-99.5-40.5ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm100-95.5q47-15.5 86-44.5-39-29-86-44.5T480-280q-53 0-100 15.5T294-220q39 29 86 44.5T480-160q53 0 100-15.5ZM523-537q17-17 17-43t-17-43q-17-17-43-17t-43 17q-17 17-17 43t17 43q17 17 43 17t43-17Zm-43-43Zm0 360Z"/></svg>
-          <span>Profile</span>
-        </a>
-      </li>
-    </ul>
-  </nav>
-  <main>
-    <div class="profile-banner">
-      <div class="profile-menu">
-        <button type="button" id="profile-menu-btn" class="profile-menu-btn" aria-label="Profile options">
-          <svg xmlns="http://www.w3.org/2000/svg" height="20px" viewBox="0 -960 960 960" width="20px" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
-        </button>
-        <div class="profile-menu-dropdown" id="profile-menu-dropdown" hidden>
-          <button type="button" id="export-backup-btn" class="profile-menu-item">Export Backup</button>
-          <button type="button" id="backup-now-btn" class="profile-menu-item" hidden>Back Up Now</button>
-          <button type="button" id="notifications-toggle-btn" class="profile-menu-item" hidden>Episode Notifications: On</button>
-          <button type="button" id="import-btn" class="profile-menu-item">Import Backup</button>
-          <button type="button" id="switch-account-btn" class="profile-menu-item">Switch Account</button>
-          <div class="profile-menu-divider"></div>
-          <button type="button" id="delete-account-btn" class="profile-menu-item profile-menu-item-danger">Delete Account</button>
+      </div>
+      <div class="profile-card__status" id="backup-status" hidden>
+        <span class="profile-card__status-icon" id="backup-status-icon">
+          <svg class="tt-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"></path><path d="M9.5 13.5l2 2 3.5-3.5"></path></svg>
+        </span>
+        <div class="profile-card__status-text">
+          <span class="profile-card__status-title" id="backup-status-title"></span>
+          <span class="profile-card__status-detail" id="backup-status-detail"></span>
         </div>
       </div>
-      <div class="profile-avatar" id="profile-avatar"></div>
-    </div>
-    <div class="profile-header">
-      <h2 id="profile-name"></h2>
-      <p id="profile-email"></p>
-      <p id="export-backup-status" class="card-meta" hidden></p>
-      <p id="auto-backup-status" class="card-meta" hidden></p>
-    </div>
-    <input type="file" id="import-app-input" accept="application/json" hidden>
+    </section>
 
-    <div class="container">
-      <a href="stats.html" class="section-link"><h2>Stats</h2><span class="section-link-more">See all <svg xmlns="http://www.w3.org/2000/svg" height="22px" viewBox="0 -960 960 960" width="22px" fill="currentColor"><path d="M504-480 320-664l56-56 240 240-240 240-56-56 184-184Z"/></svg></span></a>
-      <a href="stats.html" class="stats-grid-link" aria-label="Open your stats"><div class="stats-grid" id="stats-grid"></div></a>
-    </div>
+    <section class="stack" aria-labelledby="profile-stats-title">
+      <div class="tt-section"><h2 id="profile-stats-title">Stats</h2><a class="tt-link" href="stats.html">See all</a></div>
+      <div class="stat-grid" id="stats-grid"></div>
+    </section>
 
-    <div class="container">
-      <h2>Watched Movies</h2>
-      <div class="media-container" id="watched-movies-container"></div>
-    </div>
+    <section class="stack">
+      <div class="tt-section"><h2>Watched Movies</h2><a class="tt-link" href="media-list.html?source=watched&amp;type=movie">See all</a></div>
+      <div class="poster-row" id="watched-movies-container"></div>
+    </section>
 
-    <div class="container">
-      <h2>Favorite Movies</h2>
-      <div class="media-container" id="favorite-movies-container"></div>
-    </div>
+    <section class="stack">
+      <div class="tt-section"><h2>Favourite Movies</h2><a class="tt-link" href="media-list.html?source=favorites&amp;type=movie">See all</a></div>
+      <div class="poster-row" id="favorite-movies-container"></div>
+    </section>
 
-    <div class="container">
-      <h2>Watched Shows</h2>
-      <div class="media-container" id="watched-shows-container"></div>
-    </div>
+    <section class="stack">
+      <div class="tt-section"><h2>Watched Shows</h2><a class="tt-link" href="media-list.html?source=watched&amp;type=tv">See all</a></div>
+      <div class="poster-row" id="watched-shows-container"></div>
+    </section>
 
-    <div class="container">
-      <h2>Favorite Shows</h2>
-      <div class="media-container" id="favorite-shows-container"></div>
-    </div>
+    <section class="stack">
+      <div class="tt-section"><h2>Favourite Shows</h2><a class="tt-link" href="media-list.html?source=favorites&amp;type=tv">See all</a></div>
+      <div class="poster-row" id="favorite-shows-container"></div>
+    </section>
   </main>
+  <nav class="tt-nav" data-active="profile"></nav>
 </body>
 </html>

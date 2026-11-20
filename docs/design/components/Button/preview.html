@@ -1,0 +1,20 @@
+<!-- @dsCard group="Actions" height=96 -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap">
+<style>body{margin:0;background:var(--bg-page);font-family:var(--font-sans);color:var(--text-primary)}</style>
+</head>
+<body>
+<div id="root" class="tt-root" style="padding:16px"></div>
+<script>
+var h = React.createElement, T = window.TVTracker;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div',{style:{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}},
+  h(T.Button,{variant:'primary',icon:'check'},'Mark season watched'),
+  h(T.Button,{variant:'secondary'},'Add to list'),
+  h(T.Button,{variant:'ghost',icon:'back'},'Back'),
+  h(T.Button,{variant:'secondary',icon:'search',iconOnly:true,label:'Search'})));
+</script>
+</body>
+</html>

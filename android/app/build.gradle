@@ -2,7 +2,8 @@ apply plugin: 'com.android.application'
 
 // Version: versionCode is the number of commits on the current branch, so every build from a newer
 // commit installs as an update (Android refuses a lower or equal versionCode); versionName is
-// "1.<that number>". Falls back to 1 when git isn't available.
+// "2.<that number>" (the 2.x series is the v2 redesign; 1.x was the original design). Falls back
+// to 1 when git isn't available.
 def gitCommitCount = { ->
     try {
         def out = new ByteArrayOutputStream()
@@ -38,7 +39,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode gitCommitCount
-        versionName "1.${gitCommitCount}"
+        versionName "2.${gitCommitCount}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

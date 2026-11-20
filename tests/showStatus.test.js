@@ -54,6 +54,7 @@ test('watching: unwatched aired episodes and a watch within the last 30 days', a
   const s = await statusOf(app, 1);
   assert.equal(s.status, 'watching');
   assert.equal(s.unwatchedCount, 4);
+  assert.ok(s.nextUnwatched && s.nextUnwatched.seasonNumber >= 1 && s.nextUnwatched.episodeNumber >= 1);
 });
 
 test('dropped: nothing watched for 30+ days after the oldest unwatched episode came out', async () => {
@@ -141,7 +142,7 @@ test('schedule lists every upcoming episode of the next and later seasons, sorte
 
 // --- stats ------------------------------------------------------------------------------------
 
-test('stats details: watch time per month, top genres and rating spread', async () => {
+test('stats details: watch time per month and top genres', async () => {
   const now = new Date();
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1, 12).toISOString();
   const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1, 12).toISOString();
@@ -155,16 +156,12 @@ test('stats details: watch time per month, top genres and rating spread', async 
   await app.put('watched_movies', { tmdbId: 1, watchedAt: thisMonth });
   await app.put('watched_movies', { tmdbId: 2, watchedAt: lastMonth });
   await watch(app, 10, [[1, 1], [1, 2]], thisMonth);
-  await app.api('PUT', '/api/ratings/movie/1', { rating: 8 });
-  await app.api('PUT', '/api/ratings/movie/2', { rating: 8 });
-  await app.api('PUT', '/api/ratings/tv/10', { rating: 3 });
 
   const details = (await app.api('GET', '/api/stats/details')).body;
   assert.equal(details.monthly.length, 12);
   assert.deepEqual(details.monthly.slice(-2).map(m => m.minutes), [90, 120 + 2 * 40]);
   assert.deepEqual(details.genres, [{ name: 'Drama', count: 3 }, { name: 'Comedy', count: 1 }, { name: 'Crime', count: 1 }]);
-  assert.equal(details.ratings[7].count, 2); // rating 8
-  assert.equal(details.ratings[2].count, 1); // rating 3
+  assert.equal(details.ratings, undefined);
 });
 
 test('stats actors: top-billed cast counted once per title, credits cached', async () => {

@@ -3,7 +3,7 @@
 // Must be the FIRST script tag on every page (before profiles.js/auth.js), so the patch is
 // installed before any page-load-time fetch fires.
 //
-// Fully local now — every route below (lists/watched/ratings/favorites/stats/recommendations)
+// Fully local now — every route below (lists/watched/favorites/stats/recommendations)
 // is handled here against the active profile's IndexedDB, plus the TMDB passthrough
 // (`/api/tmdb/*`), where each profile calls TMDB directly using its own locally-stored API key
 // (TMDB sends `access-control-allow-origin: *`, so this works from a browser/WebView with no
@@ -95,6 +95,22 @@ function stripAdultItems(data) {
   return data;
 }
 
+// Settings > Language: TMDB returns titles, overviews and episode names in the profile's
+// language. Pages ask for language=en-US (or nothing); for any other language this replaces it.
+// Trailers are kept findable: videos come in that language, English, or none. English profiles
+// get the path back unchanged.
+function localizeTmdbPath(pathWithQuery, profile = getActiveProfile()) {
+  const language = profileLanguage(profile);
+  if (language === DEFAULT_TMDB_LANGUAGE) return pathWithQuery;
+  const [path, query = ''] = pathWithQuery.split('?');
+  const params = new URLSearchParams(query);
+  params.set('language', language);
+  if ((params.get('append_to_response') || '').includes('videos') || /\/videos$/.test(path)) {
+    params.set('include_video_language', `${language.split('-')[0]},en,null`);
+  }
+  return `${path}?${params.toString()}`;
+}
+
 async function handleTmdbPassthrough(pathname, search) {
   const profile = getActiveProfile();
   if (!profile || !profile.tmdbApiKey) {
@@ -102,7 +118,7 @@ async function handleTmdbPassthrough(pathname, search) {
   }
 
   const tmdbPath = pathname.slice('/api/tmdb'.length);
-  const url = `${TMDB_BASE_URL}${tmdbPath}${search}`;
+  const url = `${TMDB_BASE_URL}${localizeTmdbPath(`${tmdbPath}${search}`, profile)}`;
 
   return queueTmdbRequest(async () => {
     try {
@@ -118,7 +134,7 @@ async function handleTmdbPassthrough(pathname, search) {
   });
 }
 
-// --- Local data routes (lists/watched/ratings/favorites/stats/recommendations) ---
+// --- Local data routes (lists/watched/favorites/stats/recommendations) ---
 // A tiny router: register (method, pattern, handler), match by segment count + literal parts,
 // ':name' segments become params. If nothing matches, the caller falls through to the real
 // network fetch — that's how routes not ported yet keep working against the old server.
@@ -249,14 +265,17 @@ async function fetchLocalTmdbUncached(tmdbPath) {
   if (!profile || !profile.tmdbApiKey) return null;
 
   const detailMatch = tmdbPath.match(TMDB_DETAIL_PATH_RE);
-  const cacheKey = detailMatch ? `${detailMatch[1]}:${detailMatch[2]}${detailMatch[3] || ''}` : null;
+  // Cached per language, so switching language doesn't keep serving the old one's titles.
+  const language = profileLanguage(profile);
+  const languageSuffix = language === DEFAULT_TMDB_LANGUAGE ? '' : `@${language}`;
+  const cacheKey = detailMatch ? `${detailMatch[1]}:${detailMatch[2]}${detailMatch[3] || ''}${languageSuffix}` : null;
   if (cacheKey) {
     const cached = await readTmdbDetailCache(cacheKey);
     if (cached) return cached;
   }
 
   const result = await queueTmdbRequest(async () => {
-    const url = `${TMDB_BASE_URL}${tmdbPath}`;
+    const url = `${TMDB_BASE_URL}${localizeTmdbPath(tmdbPath, profile)}`;
     const headers = { accept: 'application/json', Authorization: `Bearer ${profile.tmdbApiKey}` };
     for (let attempt = 0; attempt <= TMDB_MAX_RETRIES; attempt++) {
       const isLastAttempt = attempt === TMDB_MAX_RETRIES;
@@ -540,6 +559,11 @@ async function computeShowStatus({ showId, show, watchedRows, lastWatchedAt, now
   const aired = airedEpisodeKeys(show);
   const unwatched = aired.filter(key => !watchedSet.has(key));
   const counts = { airedCount: aired.length, unwatchedCount: unwatched.length };
+  // The first aired episode not yet watched - Home's Continue Watching shows it as "Next".
+  if (unwatched.length) {
+    const [nextSeason, nextEpisode] = unwatched[0].split(':').map(Number);
+    counts.nextUnwatched = { seasonNumber: nextSeason, episodeNumber: nextEpisode };
+  }
 
   if (unwatched.length === 0) {
     return { status: SHOW_ENDED_STATUSES.includes(show.status) ? 'completed' : 'caught_up', ...counts };
@@ -729,38 +753,6 @@ function invalidMediaType(mediaType) {
   return !['movie', 'tv'].includes(mediaType);
 }
 
-route('GET', '/api/ratings/:mediaType/:tmdbId', async ({ mediaType, tmdbId }) => {
-  if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
-  const db = await getDb();
-  const row = await dbGet(db, 'ratings', mediaKey(mediaType, tmdbId));
-  return jsonResponse({ rating: row ? row.rating : null });
-});
-
-route('PUT', '/api/ratings/:mediaType/:tmdbId', async ({ mediaType, tmdbId }, searchParams, getBody) => {
-  if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
-  const body = await getBody();
-  const value = Number(body && body.rating);
-  if (!Number.isInteger(value) || value < 1 || value > 10) {
-    return jsonResponse({ error: 'rating must be an integer between 1 and 10' }, 400);
-  }
-  const db = await getDb();
-  await dbPut(db, 'ratings', {
-    key: mediaKey(mediaType, tmdbId),
-    mediaType,
-    tmdbId: Number(tmdbId),
-    rating: value,
-    ratedAt: new Date().toISOString(),
-  });
-  return jsonResponse({});
-});
-
-route('DELETE', '/api/ratings/:mediaType/:tmdbId', async ({ mediaType, tmdbId }) => {
-  if (invalidMediaType(mediaType)) return jsonResponse({ error: 'mediaType must be movie or tv' }, 400);
-  const db = await getDb();
-  await dbDelete(db, 'ratings', mediaKey(mediaType, tmdbId));
-  return jsonResponse({});
-});
-
 async function enrichedFavorites(db, mediaType, searchParams) {
   const rows = await dbGetAllByIndex(db, 'favorites', 'mediaType', mediaType);
   return Promise.all(
@@ -807,18 +799,14 @@ const DEFAULT_EPISODE_RUNTIME_MINUTES = 30;
 
 route('GET', '/api/stats', async () => {
   const db = await getDb();
-  const [watchedMovies, episodes, favorites, ratings] = await Promise.all([
+  const [watchedMovies, episodes, favorites] = await Promise.all([
     dbGetAll(db, 'watched_movies'),
     dbGetAll(db, 'watched_episodes'),
     dbGetAll(db, 'favorites'),
-    dbGetAll(db, 'ratings'),
   ]);
 
   const episodeCountsByShow = new Map();
   episodes.forEach(ep => episodeCountsByShow.set(ep.showId, (episodeCountsByShow.get(ep.showId) || 0) + 1));
-
-  const ratingsCount = ratings.length;
-  const averageRating = ratingsCount ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratingsCount : null;
 
   const [movieRuntimes, showRuntimes] = await Promise.all([
     Promise.all(watchedMovies.map(row => fetchLocalTmdb(`/movie/${row.tmdbId}`).then(data => (data && data.runtime) || 0))),
@@ -836,8 +824,6 @@ route('GET', '/api/stats', async () => {
     showsTracked: episodeCountsByShow.size,
     episodesWatched: episodes.length,
     favorites: favorites.length,
-    ratingsGiven: ratingsCount,
-    averageRating: averageRating ? Math.round(averageRating * 10) / 10 : null,
     totalWatchMinutes,
   });
 });
@@ -860,13 +846,12 @@ function lastMonthKeys(now, count) {
 }
 
 // Watch time per month (last 12 months), top genres (by number of watched titles, movies and
-// shows together), and how the profile's ratings are spread (1-10, i.e. half-stars).
+// shows together).
 route('GET', '/api/stats/details', async () => {
   const db = await getDb();
-  const [watchedMovies, episodes, ratings] = await Promise.all([
+  const [watchedMovies, episodes] = await Promise.all([
     dbGetAll(db, 'watched_movies'),
     dbGetAll(db, 'watched_episodes'),
-    dbGetAll(db, 'ratings'),
   ]);
 
   const showIds = [...new Set(episodes.map(ep => ep.showId))];
@@ -897,13 +882,9 @@ route('GET', '/api/stats/details', async () => {
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
     .slice(0, STATS_TOP_GENRES);
 
-  const ratingCounts = Array.from({ length: 10 }, (_, i) => ({ rating: i + 1, count: 0 }));
-  ratings.forEach(r => { if (r.rating >= 1 && r.rating <= 10) ratingCounts[r.rating - 1].count += 1; });
-
   return jsonResponse({
     monthly: months.map(month => ({ month, minutes: minutesByMonth.get(month) })),
     genres,
-    ratings: ratingCounts,
   });
 });
 
@@ -1029,6 +1010,104 @@ route('GET', '/api/recommendations/:mediaType', async ({ mediaType }, searchPara
     .map(raw => toStandardItem(raw, mediaType));
 
   return jsonResponse({ seedCount, items, page, totalPages });
+});
+
+// --- Settings-driven routes: release reminders, weekly recap, reset ---
+
+// A movie's release date in a region, from TMDB's /movie/{id}/release_dates: the earliest
+// theatrical one (types 2 limited, 3 wide), else the earliest digital one (type 4). null when
+// the region has neither. Returns 'YYYY-MM-DD'.
+const THEATRICAL_RELEASE_TYPES = [2, 3];
+const DIGITAL_RELEASE_TYPE = 4;
+function regionalReleaseDate(releaseDates, region) {
+  const entry = ((releaseDates && releaseDates.results) || []).find(r => r.iso_3166_1 === region);
+  if (!entry) return null;
+  const earliest = types => (entry.release_dates || [])
+    .filter(d => types.includes(d.type) && d.release_date)
+    .map(d => d.release_date.slice(0, 10))
+    .sort()[0] || null;
+  const theatrical = earliest(THEATRICAL_RELEASE_TYPES);
+  if (theatrical) return { date: theatrical, kind: 'theatrical' };
+  const digital = earliest([DIGITAL_RELEASE_TYPE]);
+  return digital ? { date: digital, kind: 'digital' } : null;
+}
+
+// Movies on the Watchlist that come out today or later in the profile's region - what
+// notifications.js schedules release reminders for. Movies with no date for the region are
+// left out.
+route('GET', '/api/watchlist/releases', async () => {
+  const db = await getDb();
+  const lists = await dbGetAll(db, 'lists');
+  const watchlist = lists.find(l => l.isDefault);
+  if (!watchlist) return jsonResponse([]);
+  const movies = (await dbGetAllByIndex(db, 'list_items', 'listId', watchlist.id)).filter(i => i.mediaType === 'movie');
+  const region = profileRegion();
+  const today = localDateString(new Date());
+
+  const releases = await Promise.all(movies.map(async row => {
+    const [details, dates] = await Promise.all([
+      fetchLocalTmdb(`/movie/${row.tmdbId}`),
+      fetchLocalTmdb(`/movie/${row.tmdbId}/release_dates`),
+    ]);
+    const release = regionalReleaseDate(dates, region);
+    if (!release || release.date < today) return null;
+    return { ...summaryFromTmdbData(row.tmdbId, 'movie', details), releaseDate: release.date, releaseKind: release.kind, region };
+  }));
+  return jsonResponse(releases.filter(Boolean).sort((a, b) => a.releaseDate.localeCompare(b.releaseDate)));
+});
+
+const RECAP_DAYS = 7;
+const RECAP_DAY_MS = 24 * 60 * 60 * 1000;
+
+// The weekly recap notification's numbers, for the week ending at `?at=` (ISO; default now):
+// episodes and movies watched in the 7 days before it, their watch time, and how many episodes
+// of tracked shows air in the 7 days after it.
+route('GET', '/api/recap', async (params, searchParams) => {
+  const at = searchParams.get('at') ? new Date(searchParams.get('at')) : new Date();
+  const from = new Date(at.getTime() - RECAP_DAYS * RECAP_DAY_MS);
+  const inWeek = iso => iso && new Date(iso) >= from && new Date(iso) <= at;
+
+  const db = await getDb();
+  const [watchedMovies, episodes] = await Promise.all([dbGetAll(db, 'watched_movies'), dbGetAll(db, 'watched_episodes')]);
+  const weekMovies = watchedMovies.filter(row => inWeek(row.watchedAt));
+  const weekEpisodes = episodes.filter(ep => inWeek(ep.watchedAt));
+
+  const showIds = [...new Set(weekEpisodes.map(ep => ep.showId))];
+  const [movies, shows] = await Promise.all([
+    Promise.all(weekMovies.map(row => fetchLocalTmdb(`/movie/${row.tmdbId}`))),
+    Promise.all(showIds.map(id => fetchLocalTmdb(`/tv/${id}`))),
+  ]);
+  const showById = new Map(showIds.map((id, i) => [id, shows[i]]));
+  let minutes = movies.reduce((sum, m) => sum + ((m && m.runtime) || 0), 0);
+  weekEpisodes.forEach(ep => {
+    const show = showById.get(ep.showId);
+    minutes += (show && show.episode_run_time && show.episode_run_time[0]) || DEFAULT_EPISODE_RUNTIME_MINUTES;
+  });
+
+  const scheduleResponse = await window.fetch('/api/watched/shows/schedule');
+  const schedule = scheduleResponse.ok ? await scheduleResponse.json() : [];
+  const startDay = localDateString(at);
+  const endDay = localDateString(new Date(at.getTime() + RECAP_DAYS * RECAP_DAY_MS));
+  const upcomingEpisodes = schedule.filter(ep => ep.airDate > startDay && ep.airDate <= endDay).length;
+
+  return jsonResponse({ episodes: weekEpisodes.length, movies: weekMovies.length, minutes, upcomingEpisodes });
+});
+
+// Settings > Reset all data: empties this profile's library (watched, lists and the Watchlist's
+// contents, favourites) but keeps the profile, its token and settings. The Watchlist
+// itself is recreated empty. The TMDB cache is left alone - it isn't the user's data.
+const LIBRARY_STORES = ['lists', 'list_items', 'watched_movies', 'watched_episodes', 'favorites'];
+route('POST', '/api/reset', async () => {
+  const db = await getDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(LIBRARY_STORES, 'readwrite');
+    LIBRARY_STORES.forEach(store => tx.objectStore(store).clear());
+    tx.objectStore('lists').add({ name: 'Bookmarks', isDefault: true, createdAt: new Date(0).toISOString() });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+  recommendationPoolCache.clear();
+  return jsonResponse({ ok: true });
 });
 
 function getRequestBody(init) {

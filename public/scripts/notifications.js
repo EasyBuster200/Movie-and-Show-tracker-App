@@ -1,4 +1,5 @@
-// New-episode notifications (Android app only), via @capacitor/local-notifications - no server,
+// Notifications (Android app only): new episodes, release reminders and the weekly recap.
+// New-episode notifications, via @capacitor/local-notifications - no server,
 // no push. Whenever the app is opened (throttled to every NOTIFICATIONS_REFRESH_INTERVAL_MS, or
 // immediately after switching profile/toggling the setting), this asks localApi.js for the
 // active profile's upcoming episodes (GET /api/watched/shows/upcoming - one next episode per
@@ -30,12 +31,20 @@ function notificationsSupported() {
   );
 }
 
+// The three kinds of notification are per-profile settings (Settings > Notifications, stored by
+// profiles.js): new episodes, release reminders for Watchlist movies, and the weekly recap.
 function areEpisodeNotificationsEnabled() {
-  return localStorage.getItem(NOTIFICATIONS_ENABLED_KEY) !== 'false';
+  return getProfilePrefs().notifyEpisodes;
 }
 
 function setEpisodeNotificationsEnabled(enabled) {
-  localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? 'true' : 'false');
+  const profile = getActiveProfile();
+  if (profile) setProfilePrefs(profile.id, { notifyEpisodes: enabled });
+  else localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? 'true' : 'false');
+}
+
+function anyNotificationsEnabled(prefs) {
+  return prefs.notifyEpisodes || prefs.releaseReminders || prefs.weeklyRecap;
 }
 
 // 'YYYY-MM-DD' -> that day at EPISODE_NOTIFY_HOUR, in the phone's local time zone.
@@ -76,6 +85,67 @@ function buildEpisodeNotifications(upcoming, now = new Date()) {
       };
     })
     .filter(Boolean);
+}
+
+// One id per movie release - same hashing as episodes, on "movie:<id>:<date>".
+function releaseNotificationId(movieId, releaseDate) {
+  return episodeNotificationId('movie', movieId, releaseDate);
+}
+
+// Pure: Watchlist releases (the /api/watchlist/releases shape) -> schedule entries at
+// EPISODE_NOTIFY_HOUR on the release day in the profile's region.
+function buildReleaseNotifications(releases, now = new Date()) {
+  return (releases || [])
+    .map(movie => {
+      const at = episodeNotificationTime(movie.releaseDate);
+      if (!at || at <= now) return null;
+      return {
+        id: releaseNotificationId(movie.tmdbId, movie.releaseDate),
+        title: movie.title,
+        body: movie.releaseKind === 'digital' ? 'Out today to stream or buy.' : 'Out today in cinemas.',
+        schedule: { at, allowWhileIdle: true },
+        smallIcon: NOTIFICATION_SMALL_ICON,
+        extra: { url: `detail.html?type=movie&id=${movie.tmdbId}` },
+      };
+    })
+    .filter(Boolean);
+}
+
+const RECAP_WEEKDAY = 0; // Sunday
+const RECAP_HOUR = 19;
+const RECAP_NOTIFICATION_ID = 2147480001;
+
+// The next Sunday 19:00 after `now` (local time).
+function nextRecapTime(now = new Date()) {
+  const at = new Date(now.getFullYear(), now.getMonth(), now.getDate(), RECAP_HOUR, 0, 0, 0);
+  at.setDate(at.getDate() + ((RECAP_WEEKDAY - at.getDay() + 7) % 7));
+  if (at <= now) at.setDate(at.getDate() + 7);
+  return at;
+}
+
+function formatRecapMinutes(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// Pure: the /api/recap numbers -> the recap notification. It's written when it's scheduled, so
+// it counts what was watched up to the last time the app was opened before Sunday evening.
+function buildRecapNotification(recap, at) {
+  const watched = recap.episodes || recap.movies
+    ? `This week: ${[recap.episodes ? plural(recap.episodes, 'episode') : null, recap.movies ? plural(recap.movies, 'movie') : null].filter(Boolean).join(', ')} (${formatRecapMinutes(recap.minutes)}).`
+    : 'Nothing watched this week.';
+  const coming = recap.upcomingEpisodes ? ` Coming up: ${plural(recap.upcomingEpisodes, 'new episode')}.` : '';
+  return {
+    id: RECAP_NOTIFICATION_ID,
+    title: 'Your week in Watchlog',
+    body: watched + coming,
+    schedule: { at, allowWhileIdle: true },
+    smallIcon: NOTIFICATION_SMALL_ICON,
+    extra: { url: 'stats.html' },
+  };
 }
 
 function readNotificationRefreshState() {
@@ -135,7 +205,8 @@ async function refreshEpisodeNotifications({ force = false, now = new Date() } =
   // Pages without the fetch shim (profile-picker.html) can only clear, not schedule.
   if (typeof dispatchLocalApi === 'undefined') return { status: 'unsupported' };
 
-  if (!areEpisodeNotificationsEnabled()) {
+  const prefs = getProfilePrefs(profile);
+  if (!anyNotificationsEnabled(prefs)) {
     await cancelEpisodeNotifications(LocalNotifications);
     localStorage.removeItem(NOTIFICATIONS_REFRESH_KEY);
     await syncBackgroundEpisodeCheck({ enabled: false });
@@ -155,17 +226,33 @@ async function refreshEpisodeNotifications({ force = false, now = new Date() } =
     return { status: 'denied' };
   }
 
-  const response = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' });
-  if (!response.ok) return { status: 'failed' };
-  const notifications = buildEpisodeNotifications(await response.json(), now);
+  const notifications = [];
+  if (prefs.notifyEpisodes) {
+    const response = await fetch('/api/watched/shows/upcoming', { credentials: 'same-origin' });
+    if (!response.ok) return { status: 'failed' };
+    notifications.push(...buildEpisodeNotifications(await response.json(), now));
+  }
+  if (prefs.releaseReminders) {
+    const response = await fetch('/api/watchlist/releases', { credentials: 'same-origin' });
+    if (response.ok) notifications.push(...buildReleaseNotifications(await response.json(), now));
+  }
+  if (prefs.weeklyRecap) {
+    const at = nextRecapTime(now);
+    const response = await fetch(`/api/recap?at=${encodeURIComponent(at.toISOString())}`, { credentials: 'same-origin' });
+    if (response.ok) notifications.push(buildRecapNotification(await response.json(), at));
+  }
 
   await cancelEpisodeNotifications(LocalNotifications);
   if (notifications.length) await LocalNotifications.schedule({ notifications });
 
   localStorage.setItem(NOTIFICATIONS_REFRESH_KEY, JSON.stringify({ profileId: profile.id, at: now.getTime() }));
 
-  const tracked = await fetch('/api/watched/shows', { credentials: 'same-origin' });
-  await syncBackgroundEpisodeCheck({ enabled: true, profile, shows: tracked.ok ? await tracked.json() : [] });
+  if (prefs.notifyEpisodes) {
+    const tracked = await fetch('/api/watched/shows', { credentials: 'same-origin' });
+    await syncBackgroundEpisodeCheck({ enabled: true, profile, shows: tracked.ok ? await tracked.json() : [] });
+  } else {
+    await syncBackgroundEpisodeCheck({ enabled: false });
+  }
   return { status: 'scheduled', count: notifications.length };
 }
 
@@ -173,8 +260,10 @@ function initNotificationTapHandler() {
   if (!notificationsSupported()) return;
   const { LocalNotifications } = window.capacitorLocalNotifications;
   LocalNotifications.addListener('localNotificationActionPerformed', event => {
-    const showId = event && event.notification && event.notification.extra && event.notification.extra.showId;
-    if (showId) window.location.href = `detail.html?type=tv&id=${encodeURIComponent(showId)}`;
+    const extra = (event && event.notification && event.notification.extra) || {};
+    // Release reminders and the recap carry the page to open; episode ones carry the show.
+    if (extra.url) window.location.href = extra.url;
+    else if (extra.showId) window.location.href = `detail.html?type=tv&id=${encodeURIComponent(extra.showId)}`;
   });
 }
 

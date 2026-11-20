@@ -71,6 +71,52 @@ function getActiveProfile() {
   return getProfiles().find(p => p.id === id) || null;
 }
 
+// --- Per-profile preferences (the Settings page) ---
+// Stored on the profile's own registry entry (`prefs`), so each profile keeps its own and they
+// go away with it. Anything unset falls back to PROFILE_PREF_DEFAULTS. theme.js reads the theme
+// and accent straight from localStorage before the page paints, so keep the shape in sync.
+const ACCENT_COLOURS = ['burgundy', 'indigo', 'ocean', 'teal', 'coral', 'magenta', 'amber'];
+const DEFAULT_TMDB_LANGUAGE = 'en-US';
+// The old device-wide episode-notifications switch; still honoured as the default for
+// profiles that haven't set their own.
+const LEGACY_NOTIFICATIONS_KEY = 'tvtc_notifications_enabled';
+
+const PROFILE_PREF_DEFAULTS = {
+  theme: 'dark', // 'dark' | 'light' | 'system'
+  accent: 'burgundy',
+  region: null, // ISO 3166-1 code; null = guess from the phone's locale
+  language: DEFAULT_TMDB_LANGUAGE, // TMDB language tag for titles/overviews
+  notifyEpisodes: true,
+  releaseReminders: true,
+  weeklyRecap: false,
+  autoBackup: true,
+};
+
+function getProfilePrefs(profileOrId = getActiveProfile()) {
+  const profile = typeof profileOrId === 'string' ? getProfiles().find(p => p.id === profileOrId) : profileOrId;
+  const defaults = { ...PROFILE_PREF_DEFAULTS, notifyEpisodes: localStorage.getItem(LEGACY_NOTIFICATIONS_KEY) !== 'false' };
+  return { ...defaults, ...((profile && profile.prefs) || {}) };
+}
+
+function setProfilePrefs(id, updates) {
+  const profile = getProfiles().find(p => p.id === id);
+  if (!profile) return null;
+  return updateProfile(id, { prefs: { ...(profile.prefs || {}), ...updates } }).prefs;
+}
+
+// The region to use for Popular rows and release dates: the chosen one, else a guess from the
+// locale ("en-US" -> "US"), else US.
+function profileRegion(profile = getActiveProfile()) {
+  const chosen = getProfilePrefs(profile).region;
+  if (chosen) return chosen;
+  const locale = (typeof navigator !== 'undefined' && navigator.language) || 'en-US';
+  return (locale.split('-')[1] || 'US').toUpperCase();
+}
+
+function profileLanguage(profile = getActiveProfile()) {
+  return getProfilePrefs(profile).language || DEFAULT_TMDB_LANGUAGE;
+}
+
 // Checks a TMDB key actually works before it's saved, rather than letting a typo surface later
 // as generic "Failed to load…" errors on every page. The app sends keys as a bearer token
 // (localApi.js), which only TMDB's long "API Read Access Token" accepts - the short 32-character
